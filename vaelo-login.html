@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vaelo — Sign in</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+  :root{
+    --bg:#12141C; --surface:#1B1E29; --card:#1F2330; --border:#2B3040; --border-strong:#3A4055;
+    --text:#EDEAE3; --text-secondary:#9497A8; --text-muted:#666A7C;
+    --gold:#D4A144; --gold-dim:#3A331F;
+    --coral:#E85C4A; --coral-dim:#3A241F;
+    --sage:#7A9B76; --sage-dim:#232D22;
+    --slate:#5B7A9D; --slate-dim:#1E2733;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .disp{font-family:'Space Grotesk',sans-serif;font-weight:600;}
+
+  .screen{display:none;}
+  .screen.active{display:block;}
+
+  /* ---------- LOGIN ---------- */
+  #screen-login.active{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
+  .login-card{background:var(--surface);border:1px solid var(--border-strong);border-radius:14px;padding:30px 28px;width:390px;max-width:100%;}
+  .login-brand{display:flex;align-items:center;gap:11px;margin-bottom:6px;}
+  .brand-mark{width:38px;height:38px;border-radius:9px;background:var(--gold);display:flex;align-items:center;justify-content:center;color:#1B1E29;font-family:'Space Grotesk';font-weight:600;font-size:18px;}
+  .login-brand h1{font-size:20px;margin:0;letter-spacing:-0.01em;}
+  .login-brand span{display:block;font-size:12px;color:var(--text-muted);margin-top:2px;}
+  .login-intro{font-size:12.5px;color:var(--text-secondary);margin:14px 0 18px;line-height:1.5;}
+  .login-field{margin-bottom:12px;}
+  .login-field label{display:block;font-size:11px;color:var(--text-secondary);margin-bottom:5px;}
+  .login-field input{width:100%;background:var(--card);border:1px solid var(--border-strong);color:var(--text);border-radius:8px;padding:10px 11px;font-family:'Inter';font-size:13.5px;}
+  .login-field input:focus{outline:none;border-color:var(--gold);}
+  .login-btn{width:100%;background:var(--gold);border:none;color:#1B1E29;padding:11px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;font-family:'Inter';margin-top:6px;}
+  .login-btn:hover{filter:brightness(1.06);}
+  .login-err{background:var(--coral-dim);color:var(--coral);font-size:12.5px;padding:9px 11px;border-radius:8px;margin-bottom:12px;display:none;}
+  .login-err.show{display:block;}
+  .login-note{font-size:10.5px;color:var(--text-muted);margin-top:16px;border-top:1px solid var(--border);padding-top:12px;line-height:1.5;}
+
+  /* ---------- TEAM EMBED (internal) ---------- */
+  #screen-team.active{display:flex;flex-direction:column;height:100vh;}
+  .embed-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 18px;background:var(--surface);border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .top-brand{display:flex;align-items:center;gap:10px;}
+  .top-brand h1{font-size:16px;margin:0;letter-spacing:-0.01em;}
+  .top-brand span{display:block;font-size:11px;color:var(--text-muted);margin-top:1px;}
+  .userbox{display:flex;align-items:center;gap:10px;}
+  .who{text-align:right;}
+  .who .nm{font-size:13px;font-weight:500;}
+  .who .rl{font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono';}
+  .avatar{width:32px;height:32px;border-radius:50%;background:var(--slate-dim);color:var(--slate);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;font-family:'JetBrains Mono';}
+  .logout{background:transparent;border:1px solid var(--border-strong);color:var(--text-secondary);padding:7px 12px;border-radius:8px;cursor:pointer;font-size:12.5px;font-family:'Inter';}
+  .logout:hover{color:var(--text);border-color:var(--text-muted);}
+  .btn-dhruv{background:var(--gold-dim);color:var(--gold);border:1px solid var(--gold);padding:7px 13px;border-radius:8px;cursor:pointer;font-size:12.5px;font-family:'Inter';font-weight:500;display:none;align-items:center;gap:6px;}
+  .btn-dhruv:hover{background:var(--gold);color:#12141C;}
+  .btn-dhruv .qn{background:var(--gold);color:#12141C;border-radius:20px;font-size:10px;padding:0 6px;font-family:'JetBrains Mono';}
+  .btn-dhruv:hover .qn{background:#12141C;color:var(--gold);}
+  .btn-activity{background:var(--slate-dim);color:var(--slate);border:1px solid var(--slate);padding:7px 13px;border-radius:8px;cursor:pointer;font-size:12.5px;font-family:'Inter';font-weight:500;display:none;}
+  .btn-activity:hover{background:var(--slate);color:#12141C;}
+  #contentFrame{flex:1;width:100%;border:none;background:var(--bg);}
+
+  /* ---------- CLIENT ---------- */
+  .appbox{max-width:1060px;margin:0 auto;padding:26px 24px 60px;}
+  header.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;}
+  .hello{margin-bottom:22px;}
+  .statbar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:26px;}
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;}
+  .stat .n{font-family:'Space Grotesk';font-size:24px;font-weight:600;font-variant-numeric:tabular-nums;}
+  .stat .l{font-size:12px;color:var(--text-secondary);margin-top:2px;}
+  .stat.good .n{color:var(--sage);} .stat.warn .n{color:var(--coral);}
+  @media(max-width:640px){.statbar{grid-template-columns:repeat(2,1fr);}}
+  .sec{margin-bottom:30px;}
+  .sec-head{font-size:14px;color:var(--text-secondary);font-weight:500;margin:0 0 12px;display:flex;align-items:center;gap:8px;}
+  .sec-head .pill{background:var(--gold-dim);color:var(--gold);font-size:11px;padding:1px 8px;border-radius:20px;font-family:'JetBrains Mono';}
+  .empty{text-align:center;padding:32px 20px;color:var(--text-muted);font-size:13px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);}
+  .ro-note{font-size:11px;color:var(--text-muted);background:var(--slate-dim);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:14px;display:inline-block;}
+
+  .appr{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:9px;display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;}
+  .appr.await{border-color:var(--gold);}
+  .appr-l .t{font-size:13.5px;font-weight:500;}
+  .appr-l .m{font-size:11.5px;color:var(--text-muted);margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .fmt-badge{background:var(--slate-dim);color:var(--slate);padding:2px 8px;border-radius:20px;font-size:10px;}
+  .appr-gate{font-size:11px;color:var(--gold);font-family:'JetBrains Mono';}
+  .appr-actions{display:flex;gap:8px;}
+  .btn-approve{background:var(--sage-dim);color:var(--sage);border:1px solid var(--sage);padding:7px 14px;border-radius:8px;cursor:pointer;font-size:12.5px;font-family:'Inter';font-weight:500;}
+  .btn-approve:hover{background:var(--sage);color:#12141C;}
+  .btn-change{background:transparent;border:1px solid var(--border-strong);color:var(--text-secondary);padding:7px 12px;border-radius:8px;cursor:pointer;font-size:12.5px;font-family:'Inter';}
+  .btn-change:hover{color:var(--coral);border-color:var(--coral);}
+
+  table.grid{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+  table.grid th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-muted);font-weight:600;padding:11px 14px;border-bottom:1px solid var(--border);}
+  table.grid td{padding:12px 14px;border-bottom:1px solid var(--border);font-size:12.5px;vertical-align:top;}
+  table.grid tr:last-child td{border-bottom:none;}
+  .cal-date{font-family:'JetBrains Mono';font-size:11.5px;color:var(--text-secondary);white-space:nowrap;}
+  .status-chip{font-size:10.5px;padding:3px 9px;border-radius:20px;white-space:nowrap;}
+  .st-posted{background:var(--sage-dim);color:var(--sage);}
+  .st-prog{background:var(--gold-dim);color:var(--gold);}
+  .st-plan{background:var(--slate-dim);color:var(--slate);}
+  .st-appr{background:var(--coral-dim);color:var(--coral);}
+  .amt{font-family:'JetBrains Mono';font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap;}
+  .cat{font-size:10px;padding:2px 8px;border-radius:20px;}
+  .cat-Retainer{background:var(--gold-dim);color:var(--gold);}
+  .cat-Production{background:var(--slate-dim);color:var(--slate);}
+  .cat-Adspend{background:var(--sage-dim);color:var(--sage);}
+  .spend-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px;}
+  @media(max-width:640px){.spend-cards{grid-template-columns:1fr;}}
+  .spend-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;}
+  .spend-card .l{font-size:11px;color:var(--text-secondary);}
+  .spend-card .v{font-size:20px;font-weight:600;font-family:'Space Grotesk';margin-top:4px;font-variant-numeric:tabular-nums;}
+
+  /* ---------- MODAL (Dhruv approvals) ---------- */
+  .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:90;align-items:center;justify-content:center;padding:20px;}
+  .overlay.open{display:flex;}
+  .modal{background:var(--surface);border:1px solid var(--border-strong);border-radius:12px;padding:22px;width:560px;max-width:100%;max-height:85vh;overflow-y:auto;}
+  .modal h3{margin:0 0 4px;font-size:16px;}
+  .modal .sub{font-size:12px;color:var(--text-muted);margin:0 0 16px;}
+  .modal-actions{display:flex;justify-content:flex-end;margin-top:16px;}
+  .btn-ghost{background:transparent;border:1px solid var(--border-strong);color:var(--text-secondary);padding:7px 14px;border-radius:8px;cursor:pointer;font-size:13px;}
+
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--sage);color:#12141C;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:opacity .2s;z-index:100;}
+  .toast.show{opacity:1;}
+
+  /* ---------- client read-only pipeline ---------- */
+  .pl-item{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:13px 15px;margin-bottom:8px;}
+  .pl-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:14px;}
+  .pl-title{font-size:13.5px;font-weight:500;}
+  .pl-meta{font-size:11px;color:var(--text-muted);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap;}
+  .pl-date{font-family:'JetBrains Mono';font-size:11px;color:var(--text-secondary);white-space:nowrap;}
+  .cstages{display:flex;align-items:flex-start;}
+  .cstage{display:flex;flex-direction:column;align-items:center;flex:1;position:relative;}
+  .cstage .dot{width:11px;height:11px;border-radius:50%;background:var(--border);border:2px solid var(--border-strong);z-index:1;}
+  .cstage.done .dot{background:var(--sage);border-color:var(--sage);}
+  .cstage.current .dot{background:var(--gold);border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-dim);}
+  .cstage .lbl{font-size:9px;color:var(--text-muted);margin-top:5px;text-align:center;line-height:1.2;}
+  .cstage.done .lbl,.cstage.current .lbl{color:var(--text-secondary);}
+  .cstage:not(:last-child)::after{content:'';position:absolute;top:4.5px;left:56%;width:88%;height:2px;background:var(--border);}
+  .cstage.done:not(:last-child)::after{background:var(--sage);}
+
+  /* ---------- finance ---------- */
+  .btn-finance{background:var(--sage-dim);color:var(--sage);border:1px solid var(--sage);padding:7px 13px;border-radius:8px;cursor:pointer;font-size:12.5px;font-family:'Inter';font-weight:500;display:none;}
+  .btn-finance:hover{background:var(--sage);color:#12141C;}
+  .modal.wide{width:700px;}
+  .fin-select{background:var(--card);border:1px solid var(--border-strong);color:var(--text);border-radius:6px;padding:7px 10px;font-family:'Inter';font-size:12.5px;margin-bottom:14px;}
+  .fin-form{display:grid;grid-template-columns:1.1fr 2fr 1.2fr 1fr auto;gap:8px;align-items:end;margin-bottom:16px;}
+  .fin-form .fld label{display:block;font-size:10px;color:var(--text-muted);margin-bottom:3px;}
+  .fin-form input,.fin-form select{width:100%;background:var(--card);border:1px solid var(--border-strong);color:var(--text);border-radius:6px;padding:7px 8px;font-family:'Inter';font-size:12px;}
+  .fin-add{background:var(--gold);border:none;color:#12141C;padding:8px 13px;border-radius:6px;cursor:pointer;font-size:12.5px;font-weight:600;font-family:'Inter';}
+  .paid-badge{font-size:10px;padding:3px 9px;border-radius:20px;background:var(--sage-dim);color:var(--sage);cursor:pointer;border:1px solid var(--sage);}
+  .unpaid-badge{font-size:10px;padding:3px 9px;border-radius:20px;background:var(--coral-dim);color:var(--coral);cursor:pointer;border:1px solid var(--coral);}
+  .fin-x{cursor:pointer;color:var(--text-muted);font-size:14px;}
+  .fin-x:hover{color:var(--coral);}
+  .fin-totals{display:flex;gap:20px;margin-top:14px;font-size:12.5px;flex-wrap:wrap;}
+  @media(max-width:640px){.fin-form{grid-template-columns:1fr 1fr;}.modal.wide{width:100%;}}
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div class="screen active" id="screen-login">
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="brand-mark">V</div>
+      <div><h1 class="disp">Vaelo</h1><span>Sign in to your account</span></div>
+    </div>
+    <p class="login-intro">Team members open the content pipeline. Clients see their own calendar and approvals only.</p>
+    <div class="login-err" id="loginErr"></div>
+    <form id="loginForm" autocomplete="off">
+      <div class="login-field"><label>Username</label><input id="f-user" type="text" autocomplete="username" placeholder="username"></div>
+      <div class="login-field"><label>Password</label><input id="f-pass" type="password" autocomplete="current-password" placeholder="••••••••"></div>
+      <button class="login-btn" type="submit">Sign in</button>
+    </form>
+    <p class="login-note">Prototype access control — credentials live in this page's code and can be read from the source, so this routes and separates views but is not tamper-proof security. Move to a backend before external rollout.</p>
+    <p class="login-note" style="margin-top:8px;border-top:none;padding-top:0;"><a href="#" onclick="configureSync();return false;" style="color:var(--slate);">Connect / change Google Sheet</a> · sync: <span id="syncState">○ local only</span></p>
+  </div>
+</div>
+
+<!-- ============ TEAM — embedded content pipeline ============ -->
+<div class="screen" id="screen-team">
+  <div class="embed-top">
+    <div class="top-brand"><div class="brand-mark">V</div><div><h1 class="disp">Content pipeline</h1><span id="tm-sub">Internal workspace</span></div></div>
+    <div class="userbox">
+      <div class="who"><div class="nm" id="tm-name"></div><div class="rl" id="tm-role">Team</div></div>
+      <button class="btn-finance" id="financeBtn" onclick="openFinance()">Finance</button>
+      <button class="btn-activity" id="activityBtn" onclick="openActivity()">Activity</button>
+      <button class="btn-dhruv" id="dhruvBtn" onclick="openInternalApprovals()">Dhruv's approval <span class="qn" id="dhruvQn">0</span></button>
+      <div class="avatar" id="tm-av"></div>
+      <button class="logout" onclick="logout()">Log out</button>
+    </div>
+  </div>
+  <iframe id="contentFrame" title="Vaelo content pipeline"></iframe>
+</div>
+
+<!-- ============ CLIENT — scoped, read-only ============ -->
+<div class="screen" id="screen-client">
+  <div class="appbox">
+    <header class="top">
+      <div class="top-brand"><div class="brand-mark">V</div><div><h1 class="disp" id="cl-brand">Client</h1><span>Content portal · by Vaelo</span></div></div>
+      <div class="userbox">
+        <div class="who"><div class="nm" id="cl-name"></div><div class="rl" id="cl-role">Client</div></div>
+        <div class="avatar" id="cl-av"></div>
+        <button class="logout" onclick="logout()">Log out</button>
+      </div>
+    </header>
+
+    <div class="statbar" id="cl-stats"></div>
+
+    <div class="sec" id="cl-expenses-sec" style="display:none;">
+      <h2 class="sec-head">Expenses &amp; billing <span class="pill mono">head only</span></h2>
+      <div class="spend-cards" id="cl-spend-cards"></div>
+      <div id="cl-expenses"></div>
+    </div>
+
+    <div class="sec">
+      <h2 class="sec-head">Awaiting your approval <span class="pill mono" id="cl-appr-count">0</span></h2>
+      <div id="cl-approvals"></div>
+    </div>
+
+    <div class="sec">
+      <h2 class="sec-head">Your content pipeline</h2>
+      <span class="ro-note">Read-only — track progress at each stage. You can approve or request changes, but only the Vaelo team can edit.</span>
+      <div id="cl-calendar"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Dhruv approvals modal -->
+<div class="overlay" id="overlay"><div class="modal" id="modalbody"></div></div>
+<div class="toast" id="toast"></div>
+
+<!-- Optional local config (git-ignored). Sets window.VAELO_SYNC_URL for local use. -->
+<script src="vaelo-config.js" onerror="void 0"></script>
+
+<script>
+/* ============================================================
+   USERS — real per-person accounts.
+   Roles:
+     'team'         internal — opens the full content pipeline (edit access)
+     'admin'        Dhruv — content pipeline + internal-approval button
+     'client-staff' client employee — their brand's calendar, read-only + client approval
+     'client-head'  client lead — same as staff + expenses/billing
+   ============================================================ */
+const USERS = [
+  // --- Internal team (edit access to the pipeline) ---
+  { user:'jay',            pass:'Jay@123',        name:'Jay',      role:'team' },
+  { user:'yash',           pass:'Yash@123',       name:'Yash',     role:'team' },
+  { user:'tanisha',        pass:'Tanisha@123',    name:'Tanisha',  role:'team' },
+  { user:'palak',          pass:'Palak@123',      name:'Palak',    role:'team' },
+  { user:'smeet',          pass:'Smeet@123',      name:'Smeet',    role:'team' },
+  // --- Dhruv (lead — gets the internal-approval button) ---
+  { user:'dhruv',          pass:'Dhruv@admin',    name:'Dhruv',    role:'admin' },
+  // --- Clients: staff + head per brand ---
+  { user:'simplicare',     pass:'SimpliCare@team', name:'SimpliCare Team', role:'client-staff', client:'SimpliCare' },
+  { user:'simplicare.head',pass:'SimpliCare@head', name:'Dinesh',          role:'client-head',  client:'SimpliCare' },
+  { user:'zerolys',        pass:'Zerolys@team',    name:'Zerolys Team',    role:'client-staff', client:'Zerolys' },
+  { user:'zerolys.head',   pass:'Zerolys@head',    name:'Jashwin',         role:'client-head',  client:'Zerolys' },
+  { user:'marigold',       pass:'Marigold@team',   name:'Marigold Team',   role:'client-staff', client:'Marigold Miraaya' },
+  { user:'marigold.head',  pass:'Marigold@head',   name:'Pranay',          role:'client-head',  client:'Marigold Miraaya' },
+];
+
+const CONTENT_FILE = 'vaelo-content.html';      // embedded, unchanged
+
+/* ============================================================
+   GOOGLE SHEETS SYNC
+   The sync URL is NOT stored in this committed file (keeps it private).
+   It is resolved, in order, from:
+     1. localStorage  — set via the "Connect Google Sheet" link on the login screen
+     2. window.VAELO_SYNC_URL — from a local, git-ignored vaelo-config.js
+   Leave unset for local-only mode. Setup steps: VAELO-SYNC-SETUP.md
+   ============================================================ */
+let SYNC_URL = (function(){
+  try{ var v=localStorage.getItem('vaelo-sync-url'); if(v) return v; }catch(e){}
+  if(typeof window.VAELO_SYNC_URL==='string' && window.VAELO_SYNC_URL) return window.VAELO_SYNC_URL;
+  return '';
+})();
+function configureSync(){
+  var cur=SYNC_URL||'';
+  var u=prompt('Paste your Google Apps Script Web App URL (ends with /exec).\nLeave blank to turn sync off (local only).', cur);
+  if(u===null) return;
+  u=u.trim();
+  if(u){ try{ localStorage.setItem('vaelo-sync-url',u); }catch(e){} SYNC_URL=u; toast('Google Sheet sync connected'); }
+  else { try{ localStorage.removeItem('vaelo-sync-url'); }catch(e){} SYNC_URL=''; toast('Sync turned off (local only)'); }
+  updateSyncState();
+}
+function updateSyncState(){
+  var el=document.getElementById('syncState'); if(!el) return;
+  el.textContent = SYNC_URL ? '● connected' : '○ local only';
+  el.style.color = SYNC_URL ? 'var(--sage)' : 'var(--text-muted)';
+}
+const STAGES = ['Idea','Calendar sent','Calendar approved','Creative in progress','Internal approval','Client approval','Scheduled/Posted'];
+const SESSION_KEY = 'vaelo-session';
+
+const EXPENSES = {
+  'SimpliCare':{ retainer:40000, items:[
+    {date:'2026-07-01', item:'Monthly retainer — July', cat:'Retainer',   amt:40000},
+    {date:'2026-07-05', item:'UGC creator fee — BP monitor reel', cat:'Production', amt:8000},
+    {date:'2026-07-09', item:'Meta ads — managed spend', cat:'Adspend',   amt:15000},
+    {date:'2026-07-14', item:'Product photography — water flosser', cat:'Production', amt:6500},
+  ]},
+  'Zerolys':{ retainer:35000, items:[
+    {date:'2026-07-01', item:'Monthly retainer — July', cat:'Retainer',   amt:35000},
+    {date:'2026-07-07', item:'Carousel design set (8 slides)', cat:'Production', amt:9000},
+    {date:'2026-07-12', item:'Meta ads — managed spend', cat:'Adspend',   amt:12000},
+  ]},
+  'Marigold Miraaya':{ retainer:30000, items:[
+    {date:'2026-07-01', item:'Monthly retainer — July', cat:'Retainer',   amt:30000},
+    {date:'2026-07-06', item:'Reel editing — festive teaser', cat:'Production', amt:7000},
+    {date:'2026-07-11', item:'Influencer seeding', cat:'Adspend',   amt:10000},
+  ]},
+};
+
+/* ---- storage: Google Sheet (if SYNC_URL set) → Claude window.storage → localStorage.
+   localStorage always keeps a local cache so the app still works offline. ---- */
+async function storeGet(key){
+  if(SYNC_URL){
+    try{
+      const r=await fetch(SYNC_URL+'?key='+encodeURIComponent(key), {method:'GET'});
+      const j=await r.json();
+      if(j && typeof j.value==='string'){ try{ localStorage.setItem(key, j.value); }catch(e){} return JSON.parse(j.value); }
+      if(j && j.value===null) return null; // key exists remotely but empty
+    }catch(e){ /* offline → fall back to cache below */ }
+  }
+  try{ if(window.storage&&window.storage.get){ const r=await window.storage.get(key,true); if(r&&r.value) return JSON.parse(r.value); } }catch(e){}
+  try{ const v=localStorage.getItem(key); if(v) return JSON.parse(v); }catch(e){}
+  return null;
+}
+async function storeSet(key,val){
+  const s=JSON.stringify(val);
+  try{ localStorage.setItem(key,s); }catch(e){}
+  if(SYNC_URL){
+    // text/plain keeps it a "simple" CORS request (no preflight) for Apps Script
+    try{ await fetch(SYNC_URL, {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body:JSON.stringify({key, value:s})}); }catch(e){}
+  }
+  try{ if(window.storage&&window.storage.set){ await window.storage.set(key,s,true); } }catch(e){}
+}
+
+function rid(){ return Math.random().toString(36).slice(2,9); }
+function today(){ return new Date().toISOString().slice(0,10); }
+function fmtDue(d){ if(!d) return ''; return new Date(d).toLocaleDateString('en-IN',{day:'numeric',month:'short'}); }
+function inr(n){ return '₹'+Number(n||0).toLocaleString('en-IN'); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m])); }
+function initials(n){ return (n||'?').trim().slice(0,2).toUpperCase(); }
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+
+/* ---- fallback content per brand if no live vaelo-content-state exists ---- */
+function demoContent(){
+  const map={'Posted':6,'Ready':5,'Client':5,'Internal':4,'WIP':3,'Planned':1};
+  const mk=(client,rows)=>rows.map(r=>({id:rid(),client,month:'2026-07',date:r[0],format:r[2],topic:r[3],product:r[4],owner:'Jay',stage:map[r[1]]??1,log:[]}));
+  return { items:[
+    ...mk('SimpliCare',[
+      ['01 Jul 2026','Posted','Carousel','5 Ways to Improve Your Oral Health','2-in-1 Oral Care System'],
+      ['06 Jul 2026','Posted','UGC Reel','Daily BP Check — Arm BP Monitor','Arm Blood Pressure Monitor'],
+      ['10 Jul 2026','Internal','Carousel','Health Myth vs Fact — BP Edition','Arm / Wrist BP Monitor'],
+      ['11 Jul 2026','WIP','UGC Reel','How It Works — Pulse Oximeter','Fingertip Pulse Oximeter'],
+      ['12 Jul 2026','Client','Carousel','What Happens When BP is High','Arm / Wrist BP Monitor'],
+      ['16 Jul 2026','Planned','Static Post','Product Spotlight — Water Flosser','F5039W / F5052W Flosser'],
+    ]),
+    ...mk('Zerolys',[
+      ['03 Jul 2026','Posted','Carousel','The PFAS Problem, Explained','Zerolys Filter'],
+      ['09 Jul 2026','Internal','Static Post','Why Clean Water Matters','Zerolys Filter'],
+      ['15 Jul 2026','Planned','Carousel','Myth vs Fact — Water Filters','Zerolys Filter'],
+    ]),
+    ...mk('Marigold Miraaya',[
+      ['04 Jul 2026','Posted','Static Post','Festive Collection Teaser','Marigold Festive Range'],
+      ['13 Jul 2026','Client','UGC Reel','Styling Reel — Festive Looks','Marigold Festive Range'],
+    ]),
+  ], ideas:[] };
+}
+async function getContent(){
+  let content=await storeGet('vaelo-content-state');
+  if(!content||!content.items||!content.items.length){ content=demoContent(); }
+  window.__content=content; return content;
+}
+
+/* ============================================================ SESSION */
+function getSession(){ try{ return JSON.parse(localStorage.getItem(SESSION_KEY)); }catch(e){ return null; } }
+function setSession(s){ localStorage.setItem(SESSION_KEY, JSON.stringify(s)); }
+function logout(){ localStorage.removeItem(SESSION_KEY); document.getElementById('contentFrame').src='about:blank'; showScreen('login'); document.getElementById('f-user').value=''; document.getElementById('f-pass').value=''; }
+function showScreen(name){ document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active', s.id==='screen-'+name)); }
+
+document.getElementById('loginForm').addEventListener('submit',(e)=>{
+  e.preventDefault();
+  const u=document.getElementById('f-user').value.trim().toLowerCase();
+  const p=document.getElementById('f-pass').value;
+  const match=USERS.find(x=>x.user===u && x.pass===p);
+  const err=document.getElementById('loginErr');
+  if(!match){ err.textContent='Incorrect username or password.'; err.classList.add('show'); return; }
+  err.classList.remove('show');
+  const session={ user:match.user, name:match.name, role:match.role, client:match.client||null };
+  setSession(session); routeTo(session);
+});
+
+function routeTo(s){
+  if(s.role==='team'||s.role==='admin'){ renderTeam(s); showScreen('team'); }
+  else { renderClient(s); showScreen('client'); }
+}
+
+/* ============================================================ TEAM (embedded pipeline) */
+async function renderTeam(s){
+  document.getElementById('tm-name').textContent=s.name;
+  document.getElementById('tm-av').textContent=initials(s.name);
+  const isAdmin=s.role==='admin';
+  document.getElementById('tm-role').textContent=isAdmin?'Lead · admin':'Team · edit access';
+  document.getElementById('tm-sub').textContent=isAdmin?'Internal workspace · approvals':'Internal workspace';
+  // load the content pipeline file, unchanged, into the frame.
+  // when it loads (or if already loaded), stamp this user's name onto every edit.
+  const frame=document.getElementById('contentFrame');
+  frame.onload=()=>bridgeFrame(s.name);
+  if(!frame.src || frame.src.endsWith('about:blank')) frame.src=CONTENT_FILE;
+  else bridgeFrame(s.name);
+  // Finance + Activity for all internal team; Dhruv's approval for admin only
+  document.getElementById('financeBtn').style.display='inline-block';
+  document.getElementById('activityBtn').style.display='inline-block';
+  const btn=document.getElementById('dhruvBtn');
+  if(isAdmin){ btn.style.display='inline-flex'; await refreshDhruvCount(); }
+  else { btn.style.display='none'; }
+}
+
+/* ---- Attribution: stamp the logged-in user's name onto pipeline edits.
+   Wraps the content file's own log-writing functions at runtime, so the
+   file itself stays unchanged. Only works while the frame is same-origin
+   (files served/opened together). ---- */
+function frameState(win){ try{ return win.eval('state'); }catch(e){ return null; } }
+function patchFrame(name){
+  let win; try{ win=document.getElementById('contentFrame').contentWindow; }catch(e){ return; }
+  const st=frameState(win);
+  if(!win || !st) return;
+  ['setStage','logChange','saveItem'].forEach(fnName=>{
+    const orig=win[fnName];
+    if(typeof orig!=='function' || orig.__attr) return;
+    const wrapped=function(){
+      const s=frameState(win);
+      const before=new Set();
+      try{ (s.items||[]).forEach(it=>(it.log||[]).forEach(l=>before.add(l))); }catch(e){}
+      const r=orig.apply(this, arguments);
+      try{
+        (s.items||[]).forEach(it=>(it.log||[]).forEach(l=>{
+          if(!before.has(l) && l && typeof l.t==='string' && !l.by){ l.by=name; l.t=l.t+' — by '+name; }
+        }));
+        if(typeof win.save==='function') win.save();
+        if(typeof win.render==='function') win.render();
+      }catch(e){}
+      return r;
+    };
+    wrapped.__attr=true;
+    win[fnName]=wrapped;
+  });
+}
+
+/* ---- Bridge the embedded pipeline to the shared store:
+   1) stamp edits with the user's name (attribution)
+   2) pull the shared content into the frame on load
+   3) push the frame's edits back to the shared store on every save
+   This is what makes the pipeline sync with the client / Dhruv / finance views
+   and the Google Sheet, without changing vaelo-content.html. ---- */
+async function bridgeFrame(name){
+  let win; try{ win=document.getElementById('contentFrame').contentWindow; }catch(e){ return; }
+  if(!win || !frameState(win)) return;
+  patchFrame(name);
+  // Arm the save-push FIRST (synchronously) so edits during the initial
+  // network pull are never missed.
+  const origSave=win.save;
+  if(typeof origSave==='function' && !origSave.__sync){
+    const wrapped=function(){
+      const r=origSave.apply(this, arguments);
+      try{ const st=frameState(win); if(st) storeSet('vaelo-content-state', st); }catch(e){}
+      return r;
+    };
+    wrapped.__sync=true;
+    win.save=wrapped;
+  }
+  // Then pull the shared content into the frame (if the store already has data).
+  try{
+    const shared=await storeGet('vaelo-content-state');
+    if(shared && shared.items){ win.eval('state='+JSON.stringify(shared)); if(typeof win.render==='function') win.render(); }
+  }catch(e){}
+}
+
+/* ---- Dhruv's activity feed: who changed what, newest first ---- */
+function openActivity(){
+  let items=[];
+  try{ const st=frameState(document.getElementById('contentFrame').contentWindow); items=(st&&st.items)||[]; }catch(e){}
+  const acts=[];
+  items.forEach(it=>(it.log||[]).forEach(l=>{ if(l.by) acts.push({by:l.by, d:l.d, action:String(l.t).replace(/ — by .*$/,''), topic:it.topic, client:it.client}); }));
+  acts.sort((a,b)=>String(b.d).localeCompare(String(a.d)));
+  const body = acts.length ? `<table class="grid">
+    <thead><tr><th>When</th><th>Who</th><th>Change</th><th>Item</th></tr></thead>
+    <tbody>${acts.slice(0,40).map(a=>`<tr>
+      <td class="cal-date">${esc(a.d)}</td><td style="font-weight:500;">${esc(a.by)}</td>
+      <td>${esc(a.action)}</td>
+      <td><div>${esc(a.topic)}</div><div style="color:var(--text-muted);font-size:11px;">${esc(a.client||'')}</div></td>
+    </tr>`).join('')}</tbody></table>`
+    : '<div class="empty">No tracked changes yet. Edits made by team members while signed in will appear here with their name.</div>';
+  document.getElementById('modalbody').innerHTML=`
+    <h3>Team activity</h3>
+    <p class="sub">Who moved or updated items in the pipeline, newest first.</p>
+    ${body}
+    <div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Close</button></div>`;
+  document.getElementById('overlay').classList.add('open');
+}
+async function refreshDhruvCount(){
+  const content=await getContent();
+  const n=content.items.filter(i=>i.stage===4).length; // awaiting internal approval
+  document.getElementById('dhruvQn').textContent=n;
+}
+
+/* ---- Dhruv's internal-approval queue (stage 4 = Internal approval) ---- */
+function closeModal(){ const m=document.querySelector('#overlay .modal'); if(m) m.classList.remove('wide'); document.getElementById('overlay').classList.remove('open'); }
+async function openInternalApprovals(){
+  const content=await getContent();
+  const items=content.items.filter(i=>i.stage===4).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  const body=items.length? items.map(it=>`
+    <div class="appr await">
+      <div class="appr-l"><div class="t">${esc(it.topic)}</div>
+        <div class="m"><span class="fmt-badge">${esc(it.format)}</span><span>${esc(it.client)}</span><span class="cal-date">${esc(it.date)}</span><span class="appr-gate">· Internal approval</span></div></div>
+      <div class="appr-actions"><button class="btn-approve" onclick="internalApprove('${it.id}')">Dhruv approve</button></div>
+    </div>`).join('')
+    : '<div class="empty">Nothing waiting on internal approval right now.</div>';
+  document.getElementById('modalbody').innerHTML=`
+    <h3>Dhruv's approval queue</h3>
+    <p class="sub">Items at the internal-approval gate. Approving moves them on to client approval.</p>
+    ${body}
+    <div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Close</button></div>`;
+  document.getElementById('overlay').classList.add('open');
+}
+async function internalApprove(id){
+  const content=window.__content;
+  const it=content.items.find(x=>x.id===id); if(!it) return;
+  it.stage=5; // Internal approval -> Client approval
+  it.log=it.log||[]; it.log.push({d:today(),t:'Internal approval by Dhruv.'});
+  await storeSet('vaelo-content-state', content);
+  toast('Approved by Dhruv ✓');
+  await refreshDhruvCount();
+  openInternalApprovals();
+  // nudge the embedded pipeline to re-read (works when it shares storage)
+  try{ document.getElementById('contentFrame').contentWindow.location.reload(); }catch(e){}
+}
+
+/* ============================================================ CLIENT (scoped, read-only) */
+function statusChip(stage){
+  if(stage>=6) return '<span class="status-chip st-posted">Scheduled / Posted</span>';
+  if(stage===1||stage===5) return '<span class="status-chip st-appr">Awaiting your approval</span>';
+  if(stage>=3) return '<span class="status-chip st-prog">In production</span>';
+  return '<span class="status-chip st-plan">Planned</span>';
+}
+async function renderClient(s){
+  const brand=s.client, isHead=s.role==='client-head';
+  document.getElementById('cl-brand').textContent=brand;
+  document.getElementById('cl-name').textContent=s.name;
+  document.getElementById('cl-role').textContent=isHead?(brand+' · head'):(brand+' · team');
+  document.getElementById('cl-av').textContent=initials(s.name);
+
+  const content=await getContent();
+  const mine=content.items.filter(i=>i.client===brand).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  const posted=mine.filter(i=>i.stage>=6).length, inprod=mine.filter(i=>i.stage>=3&&i.stage<6).length;
+  const fin=await getFinance();
+  const finList=(fin[brand]||[]).slice().sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  const spent=finList.reduce((a,b)=>a+b.amt,0);
+
+  document.getElementById('cl-stats').innerHTML=`
+    <div class="stat"><div class="n mono">${mine.length}</div><div class="l">Content pieces</div></div>
+    <div class="stat good"><div class="n mono">${posted}</div><div class="l">Published</div></div>
+    <div class="stat"><div class="n mono">${inprod}</div><div class="l">In production</div></div>
+    ${isHead?`<div class="stat"><div class="n mono" style="font-size:18px;">${inr(spent)}</div><div class="l">Billed this month</div></div>`
+             :`<div class="stat warn"><div class="n mono">${mine.filter(i=>i.stage===1||i.stage===5).length}</div><div class="l">Awaiting you</div></div>`}`;
+
+  // Expenses/billing — client HEAD only. Amounts visible; paid/unpaid stays internal to Vaelo.
+  const expSec=document.getElementById('cl-expenses-sec');
+  if(isHead){
+    expSec.style.display='block';
+    const byCat=c=>finList.filter(i=>i.cat===c).reduce((a,b)=>a+b.amt,0);
+    const retainer=(EXPENSES[brand]&&EXPENSES[brand].retainer)||0;
+    document.getElementById('cl-spend-cards').innerHTML=`
+      <div class="spend-card"><div class="l">Total billed — July</div><div class="v">${inr(spent)}</div></div>
+      <div class="spend-card"><div class="l">Monthly retainer</div><div class="v">${inr(retainer)}</div></div>
+      <div class="spend-card"><div class="l">Production + ad spend</div><div class="v">${inr(byCat('Production')+byCat('Adspend'))}</div></div>`;
+    document.getElementById('cl-expenses').innerHTML= finList.length? `<table class="grid">
+      <thead><tr><th>Date</th><th>Item</th><th>Category</th><th style="text-align:right;">Amount</th></tr></thead>
+      <tbody>${finList.map(x=>`<tr>
+        <td class="cal-date">${fmtDue(x.date)}</td><td>${esc(x.item)}</td>
+        <td><span class="cat cat-${x.cat}">${x.cat==='Adspend'?'Ad spend':x.cat}</span></td>
+        <td class="amt">${inr(x.amt)}</td></tr>`).join('')}
+        <tr><td></td><td style="font-weight:600;">Total</td><td></td><td class="amt" style="font-weight:600;">${inr(spent)}</td></tr>
+      </tbody></table>` : '<div class="empty">No billing items yet.</div>';
+  } else { expSec.style.display='none'; }
+
+  const pending=mine.filter(i=>i.stage===1||i.stage===5);
+  document.getElementById('cl-appr-count').textContent=pending.length;
+  document.getElementById('cl-approvals').innerHTML = pending.length? pending.map(it=>{
+    const gate=it.stage===1?'Calendar approval':'Final creative approval';
+    return `<div class="appr await">
+      <div class="appr-l"><div class="t">${esc(it.topic)}</div>
+        <div class="m"><span class="fmt-badge">${esc(it.format)}</span><span>${esc(it.product||'')}</span><span class="cal-date">${esc(it.date)}</span><span class="appr-gate">· ${gate}</span></div></div>
+      <div class="appr-actions"><button class="btn-change" onclick="requestChange('${it.id}')">Request change</button><button class="btn-approve" onclick="clientApprove('${it.id}')">Approve</button></div>
+    </div>`;
+  }).join('') : '<div class="empty">Nothing needs your approval right now — all caught up.</div>';
+
+  // Read-only pipeline (stage-gate) scoped to this brand. No author names shown to clients.
+  document.getElementById('cl-calendar').innerHTML = mine.length? mine.map(it=>`
+    <div class="pl-item">
+      <div class="pl-top">
+        <div><div class="pl-title">${esc(it.topic)}</div>
+          <div class="pl-meta"><span class="fmt-badge">${esc(it.format)}</span><span>${esc(it.product||'')}</span><span>${statusChip(it.stage)}</span></div></div>
+        <div class="pl-date">${esc(it.date)}</div>
+      </div>
+      <div class="cstages">${STAGES.map((st,i)=>`<div class="cstage ${i<it.stage?'done':''} ${i===it.stage?'current':''}"><div class="dot"></div><div class="lbl">${esc(st)}</div></div>`).join('')}</div>
+    </div>`).join('')
+    : '<div class="empty">No content scheduled for '+esc(brand)+' yet.</div>';
+}
+async function clientApprove(id){
+  const s=getSession(), content=window.__content;
+  const it=content.items.find(x=>x.id===id); if(!it) return;
+  it.stage = it.stage===1?2:6;
+  it.log=it.log||[]; it.log.push({d:today(),t:`Client approval by ${s.name} (${s.client}).`});
+  await storeSet('vaelo-content-state', content);
+  toast('Approved — thank you!'); renderClient(s);
+}
+async function requestChange(id){
+  const note=prompt('What would you like changed? (Logged for the Vaelo team.)'); if(note===null) return;
+  const s=getSession(), content=window.__content;
+  const it=content.items.find(x=>x.id===id); if(!it) return;
+  it.log=it.log||[]; it.log.push({d:today(),t:`Change requested by ${s.name} (${s.client}): ${note.trim()||'no detail'}`});
+  await storeSet('vaelo-content-state', content);
+  toast('Change request sent to the team.');
+}
+
+/* ============================================================ FINANCE
+   Billing entries per brand. Team + Dhruv add items and mark paid/unpaid.
+   Clients (head) see the amounts; paid/unpaid stays internal to Vaelo.
+   Stored under 'vaelo-finance-state'. ============================================================ */
+function seedFinance(){
+  const f={};
+  Object.keys(EXPENSES).forEach(b=>{ f[b]=EXPENSES[b].items.map(x=>({id:rid(),date:x.date,item:x.item,cat:x.cat,amt:x.amt,paid:false,addedBy:'seed'})); });
+  return f;
+}
+async function getFinance(){
+  let f=await storeGet('vaelo-finance-state');
+  if(!f || typeof f!=='object'){ f=seedFinance(); await storeSet('vaelo-finance-state',f); }
+  Object.keys(EXPENSES).forEach(b=>{ if(!f[b]) f[b]=[]; });
+  window.__finance=f; return f;
+}
+async function openFinance(brand){
+  const f=await getFinance();
+  const brands=Object.keys(EXPENSES);
+  brand = brand || window.__finBrand || brands[0]; window.__finBrand=brand;
+  const list=(f[brand]||[]).slice().sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  const total=list.reduce((a,b)=>a+b.amt,0);
+  const paid=list.filter(x=>x.paid).reduce((a,b)=>a+b.amt,0);
+  const cats=['Retainer','Production','Adspend','Other'];
+  const rows=list.length? list.map(x=>`<tr>
+      <td class="cal-date">${fmtDue(x.date)}</td>
+      <td>${esc(x.item)}<div style="color:var(--text-muted);font-size:10px;">added by ${esc(x.addedBy||'—')}</div></td>
+      <td><span class="cat cat-${x.cat}">${x.cat==='Adspend'?'Ad spend':x.cat}</span></td>
+      <td class="amt">${inr(x.amt)}</td>
+      <td><span class="${x.paid?'paid-badge':'unpaid-badge'}" onclick="togglePaid('${esc(brand)}','${x.id}')">${x.paid?'Paid':'Unpaid'}</span></td>
+      <td><span class="fin-x" onclick="delFinance('${esc(brand)}','${x.id}')">&times;</span></td>
+    </tr>`).join('') : '<tr><td colspan="6" style="color:var(--text-muted);padding:14px;">No billing items for this client yet.</td></tr>';
+  document.getElementById('modalbody').innerHTML=`
+    <h3>Finance — client billing</h3>
+    <p class="sub">Add billing items — visible to the client head. Mark Paid/Unpaid — visible to the Vaelo team &amp; Dhruv only.</p>
+    <select class="fin-select" onchange="openFinance(this.value)">${brands.map(b=>`<option ${b===brand?'selected':''}>${esc(b)}</option>`).join('')}</select>
+    <div class="fin-form">
+      <div class="fld"><label>Date</label><input type="date" id="fin-date"></div>
+      <div class="fld"><label>Item</label><input id="fin-item" placeholder="e.g. Reel editing"></div>
+      <div class="fld"><label>Category</label><select id="fin-cat">${cats.map(c=>`<option value="${c}">${c==='Adspend'?'Ad spend':c}</option>`).join('')}</select></div>
+      <div class="fld"><label>Amount ₹</label><input type="number" id="fin-amt" placeholder="0"></div>
+      <button class="fin-add" onclick="addFinance('${esc(brand)}')">Add</button>
+    </div>
+    <table class="grid">
+      <thead><tr><th>Date</th><th>Item</th><th>Category</th><th style="text-align:right;">Amount</th><th>Status</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="fin-totals">
+      <div>Total billed: <b class="mono">${inr(total)}</b></div>
+      <div style="color:var(--sage);">Paid: <b class="mono">${inr(paid)}</b></div>
+      <div style="color:var(--coral);">Outstanding: <b class="mono">${inr(total-paid)}</b></div>
+    </div>
+    <div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Close</button></div>`;
+  const m=document.querySelector('#overlay .modal'); if(m) m.classList.add('wide');
+  document.getElementById('overlay').classList.add('open');
+}
+async function addFinance(brand){
+  const item=document.getElementById('fin-item').value.trim();
+  const amt=parseFloat(document.getElementById('fin-amt').value);
+  if(!item || !(amt>0)){ toast('Enter an item and a valid amount'); return; }
+  const f=window.__finance||await getFinance();
+  const s=getSession();
+  (f[brand]=f[brand]||[]).push({id:rid(),date:document.getElementById('fin-date').value||today(),item,cat:document.getElementById('fin-cat').value,amt,paid:false,addedBy:s?s.name:'—'});
+  await storeSet('vaelo-finance-state',f);
+  toast('Billing item added'); openFinance(brand);
+}
+async function togglePaid(brand,id){
+  const f=window.__finance||await getFinance();
+  const x=(f[brand]||[]).find(e=>e.id===id); if(!x) return;
+  x.paid=!x.paid; await storeSet('vaelo-finance-state',f);
+  toast(x.paid?'Marked paid':'Marked unpaid'); openFinance(brand);
+}
+async function delFinance(brand,id){
+  const f=window.__finance||await getFinance();
+  f[brand]=(f[brand]||[]).filter(e=>e.id!==id);
+  await storeSet('vaelo-finance-state',f); openFinance(brand);
+}
+
+document.getElementById('overlay').addEventListener('click',(e)=>{ if(e.target.id==='overlay') closeModal(); });
+
+/* ---- boot ---- */
+(function(){ updateSyncState(); const s=getSession(); if(s&&s.role){ routeTo(s); } else { showScreen('login'); } })();
+</script>
+</body>
+</html>

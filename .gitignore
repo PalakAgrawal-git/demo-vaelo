@@ -1,0 +1,19 @@
+# Whitelist approach: ignore EVERYTHING in this folder by default,
+# then explicitly allow only the Vaelo app files. This keeps personal
+# files (PDFs, chats, other clients' sheets) and the private sync
+# config out of the repo.
+
+/*
+
+# --- allow only these ---
+!/.gitignore
+!/index.html
+!/vaelo-login.html
+!/vaelo-content.html
+!/vaelo-ops.html
+!/vaelo-apps-script.gs
+!/VAELO-SYNC-SETUP.md
+!/README.md
+
+# vaelo-config.js is intentionally NOT allowed here — it holds the
+# private sync URL and must never be committed.

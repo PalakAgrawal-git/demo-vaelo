@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Vaelo Ops</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root{
+    --bg:#12141C;
+    --surface:#1B1E29;
+    --surface-raised:#22263400;
+    --card:#1F2330;
+    --border:#2B3040;
+    --border-strong:#3A4055;
+    --text:#EDEAE3;
+    --text-secondary:#9497A8;
+    --text-muted:#666A7C;
+    --gold:#D4A144;
+    --gold-dim:#3A331F;
+    --coral:#E85C4A;
+    --coral-dim:#3A241F;
+    --sage:#7A9B76;
+    --sage-dim:#232D22;
+    --slate:#5B7A9D;
+    --slate-dim:#1E2733;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .disp{font-family:'Space Grotesk',sans-serif;font-weight:600;}
+
+  #app{max-width:1180px;margin:0 auto;padding:28px 24px 60px;}
+
+  header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand-mark{width:34px;height:34px;border-radius:8px;background:var(--gold);display:flex;align-items:center;justify-content:center;color:#1B1E29;font-family:'Space Grotesk';font-weight:600;font-size:16px;}
+  .brand h1{font-size:19px;margin:0;letter-spacing:-0.01em;}
+  .brand span{display:block;font-size:12px;color:var(--text-muted);margin-top:1px;}
+
+  .statbar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;}
+  .stat .n{font-family:'Space Grotesk';font-size:24px;font-weight:600;}
+  .stat .l{font-size:12px;color:var(--text-secondary);margin-top:2px;}
+  .stat.warn .n{color:var(--coral);}
+
+  nav{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:20px;}
+  .tab{padding:10px 16px;font-size:13px;color:var(--text-secondary);cursor:pointer;border-bottom:2px solid transparent;user-select:none;display:flex;align-items:center;gap:6px;}
+  .tab .count{background:var(--border);color:var(--text-secondary);font-size:11px;padding:1px 6px;border-radius:20px;font-family:'JetBrains Mono';}
+  .tab.active{color:var(--text);border-bottom-color:var(--gold);}
+  .tab.active .count{background:var(--gold-dim);color:var(--gold);}
+  .tab:hover{color:var(--text);}
+
+  .panel{display:none;}
+  .panel.active{display:block;}
+
+  .toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+  .toolbar h2{font-size:14px;margin:0;color:var(--text-secondary);font-weight:500;}
+  button.add{background:var(--gold-dim);color:var(--gold);border:1px solid var(--gold);border-radius:var(--radius);padding:7px 14px;font-size:13px;cursor:pointer;font-family:'Inter';font-weight:500;}
+  button.add:hover{background:var(--gold);color:#1B1E29;}
+
+  /* PIPELINE - kanban */
+  .kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
+  .kcol{background:var(--surface);border-radius:var(--radius);padding:10px;min-height:80px;}
+  .kcol h3{font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-muted);margin:2px 4px 10px;font-weight:600;}
+  .kcard{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 11px;margin-bottom:8px;cursor:pointer;}
+  .kcard:hover{border-color:var(--border-strong);}
+  .kcard .name{font-size:13px;font-weight:500;margin-bottom:4px;}
+  .kcard .meta{font-size:11px;color:var(--text-muted);}
+  .kcard .retainer{font-family:'JetBrains Mono';font-size:11px;color:var(--sage);margin-top:5px;}
+
+  /* PRODUCTION - stage rows */
+  .prow{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:13px 15px;margin-bottom:8px;}
+  .prow-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .prow-title{font-size:13px;font-weight:500;}
+  .prow-client{font-size:11px;color:var(--gold);font-family:'JetBrains Mono';margin-top:2px;}
+  .prow-due{font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono';}
+  .prow-due.overdue{color:var(--coral);}
+  .stages{display:flex;align-items:center;gap:0;}
+  .stage{display:flex;flex-direction:column;align-items:center;flex:1;position:relative;}
+  .stage .dot{width:12px;height:12px;border-radius:50%;background:var(--border);border:2px solid var(--border-strong);z-index:1;cursor:pointer;}
+  .stage.done .dot{background:var(--sage);border-color:var(--sage);}
+  .stage.current .dot{background:var(--gold);border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-dim);}
+  .stage .lbl{font-size:9.5px;color:var(--text-muted);margin-top:5px;text-align:center;}
+  .stage.done .lbl,.stage.current .lbl{color:var(--text-secondary);}
+  .stage:not(:last-child)::after{content:'';position:absolute;top:5px;left:56%;width:88%;height:2px;background:var(--border);}
+  .stage.done:not(:last-child)::after{background:var(--sage);}
+  .del-x{cursor:pointer;color:var(--text-muted);font-size:12px;padding:2px 4px;}
+  .del-x:hover{color:var(--coral);}
+
+  /* TEAM */
+  .team-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;}
+  .member{background:var(--surface);border-radius:var(--radius);padding:12px;}
+  .member h3{font-size:13px;margin:0 0 10px;display:flex;align-items:center;gap:8px;}
+  .avatar{width:22px;height:22px;border-radius:50%;background:var(--slate-dim);color:var(--slate);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;font-family:'JetBrains Mono';}
+  .task{background:var(--card);border:1px solid var(--border);border-radius:7px;padding:8px 10px;margin-bottom:6px;font-size:12.5px;display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  .task.done{opacity:0.45;text-decoration:line-through;}
+  .task-due{font-family:'JetBrains Mono';font-size:10.5px;color:var(--text-muted);white-space:nowrap;}
+  .task-due.overdue{color:var(--coral);}
+  .task-check{width:14px;height:14px;border-radius:4px;border:1.5px solid var(--border-strong);cursor:pointer;flex-shrink:0;}
+  .task.done .task-check{background:var(--sage);border-color:var(--sage);}
+  .empty-mini{font-size:11px;color:var(--text-muted);padding:6px 2px;}
+
+  /* APPROVALS */
+  .arow{display:flex;justify-content:space-between;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 15px;margin-bottom:8px;}
+  .arow.overdue{border-color:var(--coral);}
+  .arow-l .item{font-size:13px;font-weight:500;}
+  .arow-l .sub{font-size:11px;color:var(--text-muted);margin-top:2px;font-family:'JetBrains Mono';}
+  .badge{font-size:10.5px;padding:3px 9px;border-radius:20px;font-weight:500;}
+  .badge.pending{background:var(--slate-dim);color:var(--slate);}
+  .badge.overdue{background:var(--coral-dim);color:var(--coral);}
+  .badge.approved{background:var(--sage-dim);color:var(--sage);}
+  .arow-actions{display:flex;gap:8px;align-items:center;}
+  select,input,textarea{background:var(--surface);border:1px solid var(--border-strong);color:var(--text);border-radius:6px;padding:6px 8px;font-family:'Inter';font-size:12.5px;}
+
+  .empty{text-align:center;padding:40px 20px;color:var(--text-muted);font-size:13px;}
+
+  /* MODAL */
+  .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:50;align-items:center;justify-content:center;}
+  .overlay.open{display:flex;}
+  .modal{background:var(--surface);border:1px solid var(--border-strong);border-radius:12px;padding:22px;width:380px;max-width:90vw;}
+  .modal h3{margin:0 0 14px;font-size:15px;}
+  .field{margin-bottom:10px;}
+  .field label{display:block;font-size:11px;color:var(--text-secondary);margin-bottom:4px;}
+  .field input,.field select,.field textarea{width:100%;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;}
+  .btn-ghost{background:transparent;border:1px solid var(--border-strong);color:var(--text-secondary);padding:7px 14px;border-radius:8px;cursor:pointer;font-size:13px;}
+  .btn-solid{background:var(--gold);border:none;color:#1B1E29;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">
+      <div class="brand-mark">V</div>
+      <div>
+        <h1 class="disp">Vaelo ops</h1>
+        <span>Client pipeline &middot; production &middot; team &middot; approvals</span>
+      </div>
+    </div>
+    <div class="mono" style="font-size:11px;color:var(--text-muted);" id="synctag">synced</div>
+  </header>
+
+  <div class="statbar" id="statbar"></div>
+
+  <nav id="tabs"></nav>
+
+  <div class="panel active" id="panel-pipeline">
+    <div class="toolbar"><h2>Client pipeline</h2><button class="add" onclick="openClientModal()">+ Add client</button></div>
+    <div class="kanban" id="kanban"></div>
+  </div>
+
+  <div class="panel" id="panel-production">
+    <div class="toolbar"><h2>Production queue</h2><button class="add" onclick="openProdModal()">+ Add item</button></div>
+    <div id="prodlist"></div>
+  </div>
+
+  <div class="panel" id="panel-team">
+    <div class="toolbar"><h2>Team tasks</h2><button class="add" onclick="openTaskModal()">+ Add task</button></div>
+    <div class="team-grid" id="teamgrid"></div>
+  </div>
+
+  <div class="panel" id="panel-approvals">
+    <div class="toolbar"><h2>Approvals tracker</h2><button class="add" onclick="openApprovalModal()">+ Add approval</button></div>
+    <div id="approvalslist"></div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay"><div class="modal" id="modalbody"></div></div>
+
+<script>
+const STAGES = ['Script','Voiceover','AI frames','Video gen','Review','Publish'];
+const PIPE_STAGES = ['Lead','Proposal','Signed','Onboarding','Active'];
+const TEAM = ['Dhruv','Jay','Onkar','Yash','Tanisha','Palak'];
+
+let state = { clients: [], production: [], tasks: [], approvals: [] };
+
+function seed(){
+  state.clients = [
+    {id:c(),name:'SimpliCare',stage:'Active',contact:'Dinesh / Vicky Vardhan',retainer:'Retainer'},
+    {id:c(),name:'Zerolys',stage:'Active',contact:'Jashwin',retainer:'Retainer'},
+    {id:c(),name:'Marigold Miraaya',stage:'Active',contact:'Pranay',retainer:'Retainer'},
+    {id:c(),name:'DVOC Institute',stage:'Active',contact:'-',retainer:'Retainer'},
+    {id:c(),name:'Tribal Zone',stage:'Onboarding',contact:'-',retainer:'\u20b925K/mo'},
+    {id:c(),name:'Deon Tapes',stage:'Proposal',contact:'Nikesh Jain',retainer:'Negotiating \u20b985K vs \u20b960K'},
+    {id:c(),name:'Veerezena',stage:'Lead',contact:'Kaizad Jangalwala',retainer:'Parked, noncommittal'},
+  ];
+  state.production = [
+    {id:c(),title:'BP monitor UGC video',client:'SimpliCare',stage:2,due:''},
+    {id:c(),title:'July carousel - PFAS pivot',client:'Zerolys',stage:4,due:''},
+    {id:c(),title:'Water flosser UGC script',client:'SimpliCare',stage:0,due:''},
+  ];
+  state.tasks = [
+    {id:c(),title:'Meta Pixel/CAPI bridge page QA',owner:'Dhruv',client:'SimpliCare',done:false,due:''},
+    {id:c(),title:'Amazon Attribution setup check',owner:'Dhruv',client:'SimpliCare',done:false,due:''},
+    {id:c(),title:'Edit BP monitor UGC cut',owner:'Yash',client:'SimpliCare',done:false,due:''},
+    {id:c(),title:'Deon Tapes counter-proposal follow-up',owner:'Jay',client:'Deon Tapes',done:false,due:''},
+  ];
+  state.approvals = [
+    {id:c(),item:'July carousel set',client:'Zerolys',contact:'Jashwin',status:'pending',sent:''},
+  ];
+}
+
+function c(){return Math.random().toString(36).slice(2,9);}
+
+async function load(){
+  try{
+    const r = await window.storage.get('vaelo-ops-state', true);
+    if(r && r.value){ state = JSON.parse(r.value); }
+    else { seed(); await save(); }
+  }catch(e){ seed(); await save(); }
+  render();
+}
+async function save(){
+  try{
+    await window.storage.set('vaelo-ops-state', JSON.stringify(state), true);
+    document.getElementById('synctag').textContent = 'synced';
+  }catch(e){ document.getElementById('synctag').textContent = 'sync failed'; }
+}
+
+let activeTab = 'pipeline';
+function switchTab(t){
+  activeTab = t;
+  document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('active', el.dataset.tab===t));
+  document.querySelectorAll('.panel').forEach(el=>el.classList.toggle('active', el.id==='panel-'+t));
+}
+
+function renderTabs(){
+  const tabs = [
+    ['pipeline','Pipeline',state.clients.length],
+    ['production','Production',state.production.length],
+    ['team','Team',state.tasks.filter(t=>!t.done).length],
+    ['approvals','Approvals',state.approvals.filter(a=>a.status!=='approved').length],
+  ];
+  document.getElementById('tabs').innerHTML = tabs.map(([id,label,count])=>
+    `<div class="tab ${id===activeTab?'active':''}" data-tab="${id}" onclick="switchTab('${id}')">${label}<span class="count">${count}</span></div>`
+  ).join('');
+}
+
+function isOverdue(dateStr){
+  if(!dateStr) return false;
+  return new Date(dateStr) < new Date(new Date().toDateString());
+}
+function fmtDate(d){ if(!d) return 'no date'; const dt=new Date(d); return dt.toLocaleDateString('en-IN',{day:'numeric',month:'short'}); }
+
+function renderStats(){
+  const activeClients = state.clients.filter(c=>c.stage==='Active').length;
+  const openTasks = state.tasks.filter(t=>!t.done).length;
+  const inProd = state.production.length;
+  const overdueApprovals = state.approvals.filter(a=>a.status!=='approved').length;
+  document.getElementById('statbar').innerHTML = `
+    <div class="stat"><div class="n mono">${activeClients}</div><div class="l">Active clients</div></div>
+    <div class="stat"><div class="n mono">${inProd}</div><div class="l">In production</div></div>
+    <div class="stat"><div class="n mono">${openTasks}</div><div class="l">Open tasks</div></div>
+    <div class="stat ${overdueApprovals?'warn':''}"><div class="n mono">${overdueApprovals}</div><div class="l">Pending approvals</div></div>
+  `;
+}
+
+function renderKanban(){
+  document.getElementById('kanban').innerHTML = PIPE_STAGES.map(stage=>{
+    const items = state.clients.filter(c=>c.stage===stage);
+    return `<div class="kcol"><h3>${stage} <span class="mono">${items.length}</span></h3>
+      ${items.map(cl=>`<div class="kcard" onclick="cycleClientStage('${cl.id}')">
+        <div class="name">${cl.name}</div>
+        <div class="meta">${cl.contact}</div>
+        <div class="retainer">${cl.retainer}</div>
+      </div>`).join('') || '<div class="empty-mini">Empty</div>'}
+    </div>`;
+  }).join('');
+}
+
+function cycleClientStage(id){
+  const cl = state.clients.find(x=>x.id===id);
+  const idx = PIPE_STAGES.indexOf(cl.stage);
+  cl.stage = PIPE_STAGES[(idx+1)%PIPE_STAGES.length];
+  save(); render();
+}
+
+function renderProduction(){
+  const el = document.getElementById('prodlist');
+  if(!state.production.length){ el.innerHTML = '<div class="empty">No items in production. Add one to start tracking.</div>'; return; }
+  el.innerHTML = state.production.map(p=>`
+    <div class="prow">
+      <div class="prow-top">
+        <div>
+          <div class="prow-title">${p.title}</div>
+          <div class="prow-client">${p.client}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="prow-due ${isOverdue(p.due)?'overdue':''}">${fmtDate(p.due)}</div>
+          <span class="del-x" onclick="delItem('production','${p.id}')">&times;</span>
+        </div>
+      </div>
+      <div class="stages">
+        ${STAGES.map((s,i)=>`
+          <div class="stage ${i<p.stage?'done':''} ${i===p.stage?'current':''}">
+            <div class="dot" onclick="setStage('${p.id}',${i})"></div>
+            <div class="lbl">${s}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+function setStage(id, i){
+  const p = state.production.find(x=>x.id===id);
+  p.stage = p.stage===i ? Math.max(0,i-1) : i;
+  save(); render();
+}
+
+function renderTeam(){
+  document.getElementById('teamgrid').innerHTML = TEAM.map(name=>{
+    const tasks = state.tasks.filter(t=>t.owner===name);
+    if(!tasks.length) return '';
+    return `<div class="member">
+      <h3><span class="avatar">${name.slice(0,2).toUpperCase()}</span>${name}</h3>
+      ${tasks.map(t=>`
+        <div class="task ${t.done?'done':''}">
+          <div class="task-check" onclick="toggleTask('${t.id}')"></div>
+          <div style="flex:1;">${t.title}${t.client?` <span style="color:var(--text-muted)">&middot; ${t.client}</span>`:''}</div>
+          <div class="task-due ${isOverdue(t.due)&&!t.done?'overdue':''}">${fmtDate(t.due)}</div>
+          <span class="del-x" onclick="delItem('tasks','${t.id}')">&times;</span>
+        </div>
+      `).join('')}
+    </div>`;
+  }).join('') || '<div class="empty">No tasks yet.</div>';
+}
+function toggleTask(id){
+  const t = state.tasks.find(x=>x.id===id);
+  t.done = !t.done;
+  save(); render();
+}
+
+function renderApprovals(){
+  const el = document.getElementById('approvalslist');
+  if(!state.approvals.length){ el.innerHTML = '<div class="empty">Nothing pending approval.</div>'; return; }
+  el.innerHTML = state.approvals.map(a=>{
+    const overdue = a.status==='pending' && isOverdue(a.sent);
+    const stat = a.status==='approved' ? 'approved' : (overdue ? 'overdue' : 'pending');
+    return `<div class="arow ${overdue?'overdue':''}">
+      <div class="arow-l">
+        <div class="item">${a.item}</div>
+        <div class="sub">${a.client} &middot; ${a.contact} &middot; sent ${fmtDate(a.sent)}</div>
+      </div>
+      <div class="arow-actions">
+        <span class="badge ${stat}">${stat}</span>
+        ${a.status!=='approved' ? `<button class="btn-ghost" style="padding:5px 10px;font-size:11.5px;" onclick="approveIt('${a.id}')">Mark approved</button>` : ''}
+        <span class="del-x" onclick="delItem('approvals','${a.id}')">&times;</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+function approveIt(id){
+  const a = state.approvals.find(x=>x.id===id);
+  a.status='approved';
+  save(); render();
+}
+
+function delItem(coll, id){
+  state[coll] = state[coll].filter(x=>x.id!==id);
+  save(); render();
+}
+
+function render(){ renderTabs(); renderStats(); renderKanban(); renderProduction(); renderTeam(); renderApprovals(); }
+
+/* MODALS */
+function closeModal(){ document.getElementById('overlay').classList.remove('open'); }
+function openModal(html){ document.getElementById('modalbody').innerHTML = html; document.getElementById('overlay').classList.add('open'); }
+
+function openClientModal(){
+  openModal(`
+    <h3>Add client</h3>
+    <div class="field"><label>Name</label><input id="m-name" placeholder="Client name"></div>
+    <div class="field"><label>Contact</label><input id="m-contact" placeholder="Point of contact"></div>
+    <div class="field"><label>Stage</label><select id="m-stage">${PIPE_STAGES.map(s=>`<option>${s}</option>`).join('')}</select></div>
+    <div class="field"><label>Retainer / note</label><input id="m-retainer" placeholder="e.g. \u20b940K/mo or negotiating"></div>
+    <div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button><button class="btn-solid" onclick="saveClient()">Add</button></div>
+  `);
+}
+function saveClient(){
+  const name = document.getElementById('m-name').value.trim();
+  if(!name) return;
+  state.clients.push({id:c(),name,contact:document.getElementById('m-contact').value||'-',stage:document.getElementById('m-stage').value,retainer:document.getElementById('m-retainer').value||'-'});
+  save(); render(); closeModal();
+}
+
+function openProdModal(){
+  openModal(`
+    <h3>Add production item</h3>
+    <div class="field"><label>Title</label><input id="m-title" placeholder="e.g. Thermometer UGC video"></div>
+    <div class="field"><label>Client</label><input id="m-client" placeholder="Client name"></div>
+    <div class="field"><label>Due date</label><input type="date" id="m-due"></div>
+    <div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button><button class="btn-solid" onclick="saveProd()">Add</button></div>
+  `);
+}
+function saveProd(){
+  const title = document.getElementById('m-title').value.trim();
+  if(!title) return;
+  state.production.push({id:c(),title,client:document.getElementById('m-client').value||'-',stage:0,due:document.getElementById('m-due').value});
+  save(); render(); closeModal();
+}
+
+function openTaskModal(){
+  openModal(`
+    <h3>Add task</h3>
+    <div class="field"><label>Task</label><input id="m-title" placeholder="Task description"></div>
+    <div class="field"><label>Owner</label><select id="m-owner">${TEAM.map(t=>`<option>${t}</option>`).join('')}</select></div>
+    <div class="field"><label>Client (optional)</label><input id="m-client" placeholder="Related client"></div>
+    <div class="field"><label>Due date</label><input type="date" id="m-due"></div>
+    <div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button><button class="btn-solid" onclick="saveTask()">Add</button></div>
+  `);
+}
+function saveTask(){
+  const title = document.getElementById('m-title').value.trim();
+  if(!title) return;
+  state.tasks.push({id:c(),title,owner:document.getElementById('m-owner').value,client:document.getElementById('m-client').value,done:false,due:document.getElementById('m-due').value});
+  save(); render(); closeModal();
+}
+
+function openApprovalModal(){
+  openModal(`
+    <h3>Add approval</h3>
+    <div class="field"><label>Item</label><input id="m-item" placeholder="e.g. August content set"></div>
+    <div class="field"><label>Client</label><input id="m-client" placeholder="Client name"></div>
+    <div class="field"><label>Contact</label><input id="m-contact" placeholder="Who needs to approve"></div>
+    <div class="field"><label>Sent date</label><input type="date" id="m-sent"></div>
+    <div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button><button class="btn-solid" onclick="saveApproval()">Add</button></div>
+  `);
+}
+function saveApproval(){
+  const item = document.getElementById('m-item').value.trim();
+  if(!item) return;
+  state.approvals.push({id:c(),item,client:document.getElementById('m-client').value||'-',contact:document.getElementById('m-contact').value||'-',status:'pending',sent:document.getElementById('m-sent').value});
+  save(); render(); closeModal();
+}
+
+document.getElementById('overlay').addEventListener('click',(e)=>{ if(e.target.id==='overlay') closeModal(); });
+
+load();
+</script>
+</body>
+</html>

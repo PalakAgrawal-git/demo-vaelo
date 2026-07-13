@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Vaelo Content Pipeline</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+  :root{
+    --bg:#12141C; --surface:#1B1E29; --card:#1F2330; --border:#2B3040; --border-strong:#3A4055;
+    --text:#EDEAE3; --text-secondary:#9497A8; --text-muted:#666A7C;
+    --gold:#D4A144; --gold-dim:#3A331F;
+    --coral:#E85C4A; --coral-dim:#3A241F;
+    --sage:#7A9B76; --sage-dim:#232D22;
+    --slate:#5B7A9D; --slate-dim:#1E2733;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  .mono{font-family:'JetBrains Mono',monospace;}
+  .disp{font-family:'Space Grotesk',sans-serif;font-weight:600;}
+  #app{max-width:1180px;margin:0 auto;padding:28px 24px 60px;}
+  header{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand-mark{width:34px;height:34px;border-radius:8px;background:var(--gold);display:flex;align-items:center;justify-content:center;color:#1B1E29;font-family:'Space Grotesk';font-weight:600;font-size:16px;}
+  .brand h1{font-size:19px;margin:0;letter-spacing:-0.01em;}
+  .brand span{display:block;font-size:12px;color:var(--text-muted);margin-top:1px;}
+
+  nav{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:20px;}
+  .tab{padding:10px 16px;font-size:13px;color:var(--text-secondary);cursor:pointer;border-bottom:2px solid transparent;user-select:none;display:flex;align-items:center;gap:6px;}
+  .tab .count{background:var(--border);color:var(--text-secondary);font-size:11px;padding:1px 6px;border-radius:20px;font-family:'JetBrains Mono';}
+  .tab.active{color:var(--text);border-bottom-color:var(--gold);}
+  .tab.active .count{background:var(--gold-dim);color:var(--gold);}
+  .tab:hover{color:var(--text);}
+  .panel{display:none;} .panel.active{display:block;}
+
+  .toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap;}
+  .toolbar h2{font-size:14px;margin:0;color:var(--text-secondary);font-weight:500;}
+  .toolbar-right{display:flex;gap:8px;align-items:center;}
+  button.add{background:var(--gold-dim);color:var(--gold);border:1px solid var(--gold);border-radius:var(--radius);padding:7px 14px;font-size:13px;cursor:pointer;font-family:'Inter';font-weight:500;}
+  button.add:hover{background:var(--gold);color:#1B1E29;}
+  button.ghost-sm{background:transparent;border:1px solid var(--border-strong);color:var(--text-secondary);padding:7px 12px;border-radius:8px;cursor:pointer;font-size:12.5px;}
+  button.ghost-sm:hover{color:var(--text);border-color:var(--text-muted);}
+  select.filter{background:var(--surface);border:1px solid var(--border-strong);color:var(--text);border-radius:8px;padding:7px 10px;font-size:12.5px;font-family:'Inter';}
+
+  .client-group{margin-bottom:26px;}
+  .client-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
+  .client-head h3{font-size:15px;margin:0;display:flex;align-items:center;gap:8px;}
+  .client-head .cnt{font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono';}
+
+  .STAGES_LEGEND{font-size:10.5px;color:var(--text-muted);display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+
+  .item{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 15px;margin-bottom:8px;}
+  .item-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;}
+  .item-title{font-size:13.5px;font-weight:500;cursor:pointer;}
+  .item-title:hover{color:var(--gold);}
+  .item-meta{font-size:11px;color:var(--text-muted);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap;}
+  .fmt-badge{background:var(--slate-dim);color:var(--slate);padding:2px 8px;border-radius:20px;font-size:10px;}
+  .item-date{font-family:'JetBrains Mono';font-size:11px;color:var(--text-secondary);white-space:nowrap;}
+  .del-x{cursor:pointer;color:var(--text-muted);font-size:13px;padding:2px 5px;}
+  .del-x:hover{color:var(--coral);}
+
+  .stages{display:flex;align-items:center;}
+  .stage{display:flex;flex-direction:column;align-items:center;flex:1;position:relative;}
+  .stage .dot{width:11px;height:11px;border-radius:50%;background:var(--border);border:2px solid var(--border-strong);z-index:1;cursor:pointer;}
+  .stage.done .dot{background:var(--sage);border-color:var(--sage);}
+  .stage.current .dot{background:var(--gold);border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-dim);}
+  .stage .lbl{font-size:9px;color:var(--text-muted);margin-top:4px;text-align:center;line-height:1.2;}
+  .stage.done .lbl,.stage.current .lbl{color:var(--text-secondary);}
+  .stage:not(:last-child)::after{content:'';position:absolute;top:4.5px;left:56%;width:88%;height:2px;background:var(--border);}
+  .stage.done:not(:last-child)::after{background:var(--sage);}
+
+  .empty{text-align:center;padding:40px 20px;color:var(--text-muted);font-size:13px;}
+
+  /* IDEA BANK */
+  .idea{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 13px;margin-bottom:7px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+  .idea-text{font-size:13px;flex:1;}
+  .idea-meta{font-size:10.5px;color:var(--text-muted);margin-top:4px;}
+  .idea-meta a{color:var(--slate);}
+  .idea-actions{display:flex;gap:6px;align-items:center;flex-shrink:0;}
+  .promote{font-size:11px;color:var(--gold);cursor:pointer;border:1px solid var(--gold);background:var(--gold-dim);padding:4px 9px;border-radius:6px;}
+
+  /* MODAL */
+  .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:50;align-items:center;justify-content:center;padding:20px;}
+  .overlay.open{display:flex;}
+  .modal{background:var(--surface);border:1px solid var(--border-strong);border-radius:12px;padding:22px;width:460px;max-width:100%;max-height:85vh;overflow-y:auto;}
+  .modal h3{margin:0 0 14px;font-size:15px;}
+  .field{margin-bottom:10px;}
+  .field label{display:block;font-size:11px;color:var(--text-secondary);margin-bottom:4px;}
+  .field input,.field select,.field textarea{width:100%;background:var(--card);border:1px solid var(--border-strong);color:var(--text);border-radius:6px;padding:7px 9px;font-family:'Inter';font-size:12.5px;}
+  .field textarea{resize:vertical;min-height:50px;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;}
+  .btn-ghost{background:transparent;border:1px solid var(--border-strong);color:var(--text-secondary);padding:7px 14px;border-radius:8px;cursor:pointer;font-size:13px;}
+  .btn-solid{background:var(--gold);border:none;color:#1B1E29;padding:7px 14px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;}
+
+  .detail-section{border-top:1px solid var(--border);margin-top:14px;padding-top:12px;}
+  .detail-section h4{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.03em;margin:0 0 8px;}
+  .kv{display:flex;font-size:12.5px;margin-bottom:6px;gap:8px;}
+  .kv .k{color:var(--text-muted);width:100px;flex-shrink:0;}
+  .kv .v{color:var(--text);}
+  .log-entry{background:var(--card);border-left:2px solid var(--gold);padding:7px 10px;margin-bottom:6px;border-radius:0 6px 6px 0;}
+  .log-entry .ldate{font-size:10px;color:var(--text-muted);font-family:'JetBrains Mono';}
+  .log-entry .ltext{font-size:12px;margin-top:2px;}
+
+  .send-preview{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:12px;white-space:pre-wrap;line-height:1.6;margin-bottom:10px;max-height:220px;overflow-y:auto;}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">
+      <div class="brand-mark">V</div>
+      <div><h1 class="disp">Content pipeline</h1><span>Idea &rarr; calendar &rarr; approval &rarr; creative &rarr; posted</span></div>
+    </div>
+    <div class="mono" style="font-size:11px;color:var(--text-muted);" id="synctag">synced</div>
+  </header>
+
+  <nav id="tabs"></nav>
+
+  <div class="panel active" id="panel-pipeline">
+    <div class="toolbar">
+      <h2>Calendar pipeline</h2>
+      <div class="toolbar-right">
+        <select class="filter" id="monthFilter" onchange="render()"></select>
+        <button class="add" onclick="openItemModal()">+ Add item</button>
+      </div>
+    </div>
+    <div class="STAGES_LEGEND" id="legend"></div>
+    <div id="pipelineList"></div>
+  </div>
+
+  <div class="panel" id="panel-ideas">
+    <div class="toolbar"><h2>Idea bank</h2><button class="add" onclick="openIdeaModal()">+ Add idea</button></div>
+    <div id="ideaList"></div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay"><div class="modal" id="modalbody"></div></div>
+
+<script>
+const STAGES = ['Idea','Calendar sent','Calendar approved','Creative in progress','Internal approval','Client approval','Scheduled/Posted'];
+const FORMATS = ['Carousel','Static Post','UGC Reel','Awareness Carousel','Video'];
+const CLIENTS = ['SimpliCare','Zerolys','Marigold Miraaya','DVOC Institute','Tribal Zone'];
+
+let state = { items: [], ideas: [] };
+function c(){return Math.random().toString(36).slice(2,9);}
+function nowStr(){return new Date().toISOString().slice(0,10);}
+
+function seed(){
+  const raw = [
+    ['01 Jul 2026','Wed','Posted','Carousel','5 Ways to Improve Your Oral Health','Water Flosser / 2-in-1 Oral Care System'],
+    ['03 Jul 2026','Thu','Posted','Static Post','Customer Reviews — 2-in-1 Oral Care System','2-in-1 Oral Care System'],
+    ['04 Jul 2026','Sat','Posted','UGC Reel','TBD — UGC Reel','TBD'],
+    ['06 Jul 2026','Mon','Posted','UGC Reel','Daily BP Check — Arm BP Monitor','Arm Blood Pressure Monitor'],
+    ['08 Jul 2026','Wed','Posted','Awareness Carousel','The Peace of Mind Story — FC-IR206','FC-IR206 Infrared Thermometer'],
+    ['09 Jul 2026','Thu','Planned','Static Post','Customer Reviews — Infrared Thermometer','FC-IR206 & AET-R842'],
+    ['11 Jul 2026','Fri','Work In Progress','UGC Reel','How It Works — Pulse Oximeter (C101A2)','Fingertip Pulse Oximeter'],
+    ['12 Jul 2026','Sat','Ready','Carousel','What Happens to Your Body When BP is High','Arm / Wrist BP Monitor'],
+    ['14 Jul 2026','Tue','Planned','Awareness Carousel','Thermometer Buying Guide — AET-R842','AET-R842 Thermometer'],
+    ['16 Jul 2026','Thu','Planned','Static Post','Product Spotlight — Cordless Water Flosser','F5039W / F5052W Flosser'],
+    ['17 Jul 2026','Fri','Planned','Carousel','You Check Your Phone 100 Times a Day — BP Awareness','Arm / Wrist BP Monitor'],
+    ['19 Jul 2026','Sun','Planned','Carousel','Why Your Oxygen Levels Matter','Fingertip Pulse Oximeter'],
+    ['21 Jul 2026','Tue','Planned','Carousel','Health Myth vs Fact — BP Edition','Arm / Wrist BP Monitor'],
+    ['22 Jul 2026','Wed','Planned','Static Post','Customer Reviews — Water Flosser','Water Flosser'],
+    ['24 Jul 2026','Fri','Planned','UGC Reel','TBD — UGC Reel','TBD'],
+    ['26 Jul 2026','Sun','Planned','Carousel','What Your Pulse Rate Is Telling You','Fingertip Pulse Oximeter'],
+    ['28 Jul 2026','Tue','Planned','Carousel','How to Build a Morning Health Routine','Multiple Products'],
+    ['29 Jul 2026','Wed','Planned','Static Post','Product Spotlight — Wrist BP Monitor (U60AH)','Wrist BP Monitor U60AH'],
+    ['31 Jul 2026','Fri','Planned','UGC Reel','Night Routine — 2-in-1 Oral Care System','2-in-1 Oral Care System FC181-W'],
+  ];
+  const statusToStage = {'Posted':6,'Ready':4,'Work In Progress':3,'Planned':2};
+  state.items = raw.map(r=>({
+    id:c(), client:'SimpliCare', month:'2026-07', date:r[0], day:r[1],
+    format:r[3], topic:r[4], product:r[5], owner:'Jay',
+    stage: statusToStage[r[2]] ?? 2, log:[{d:nowStr(),t:'Imported from July 2026 calendar sheet.'}]
+  }));
+  state.ideas = [
+    {id:c(), client:'SimpliCare', text:'IG Reel trend: "things nobody tells you about X" format — could work for BP monitor category education.', ref:'', addedBy:'Jay'},
+  ];
+}
+
+async function load(){
+  try{
+    const r = await window.storage.get('vaelo-content-state', true);
+    if(r && r.value){ state = JSON.parse(r.value); }
+    else { seed(); await save(); }
+  }catch(e){ seed(); await save(); }
+  render();
+}
+async function save(){
+  try{ await window.storage.set('vaelo-content-state', JSON.stringify(state), true); document.getElementById('synctag').textContent='synced'; }
+  catch(e){ document.getElementById('synctag').textContent='sync failed'; }
+}
+
+let activeTab='pipeline';
+function switchTab(t){
+  activeTab=t;
+  document.querySelectorAll('.tab').forEach(el=>el.classList.toggle('active', el.dataset.tab===t));
+  document.querySelectorAll('.panel').forEach(el=>el.classList.toggle('active', el.id==='panel-'+t));
+}
+function renderTabs(){
+  const tabs=[['pipeline','Pipeline',state.items.length],['ideas','Idea bank',state.ideas.length]];
+  document.getElementById('tabs').innerHTML = tabs.map(([id,label,count])=>
+    `<div class="tab ${id===activeTab?'active':''}" data-tab="${id}" onclick="switchTab('${id}')">${label}<span class="count">${count}</span></div>`
+  ).join('');
+}
+
+function monthOptions(){
+  const months = [...new Set(state.items.map(i=>i.month))].sort();
+  const sel = document.getElementById('monthFilter');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="all">All months</option>' + months.map(m=>`<option value="${m}">${m}</option>`).join('');
+  if(months.includes(cur)) sel.value = cur;
+}
+
+function renderLegend(){
+  document.getElementById('legend').innerHTML = STAGES.map((s,i)=>`<span>${i+1}. ${s}</span>`).join('');
+}
+
+function renderPipeline(){
+  monthOptions();
+  const monthFilter = document.getElementById('monthFilter').value || 'all';
+  const el = document.getElementById('pipelineList');
+  const items = state.items.filter(i => monthFilter==='all' || i.month===monthFilter);
+  if(!items.length){ el.innerHTML = '<div class="empty">No calendar items yet. Add one, or promote an idea from the Idea bank.</div>'; return; }
+  el.innerHTML = CLIENTS.map(client=>{
+    const cItems = items.filter(i=>i.client===client).sort((a,b)=>a.date.localeCompare(b.date));
+    if(!cItems.length) return '';
+    return `<div class="client-group">
+      <div class="client-head">
+        <h3>${client} <span class="cnt mono">${cItems.length} items</span></h3>
+        <button class="ghost-sm" onclick="openSendModal('${client}','${monthFilter}')">Generate client send</button>
+      </div>
+      ${cItems.map(it=>`
+        <div class="item">
+          <div class="item-top">
+            <div>
+              <div class="item-title" onclick="openDetail('${it.id}')">${it.topic}</div>
+              <div class="item-meta">
+                <span class="fmt-badge">${it.format}</span>
+                <span>${it.product}</span>
+                <span>&middot; ${it.owner}</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="item-date">${it.date}</div>
+              <span class="del-x" onclick="delItem('${it.id}')">&times;</span>
+            </div>
+          </div>
+          <div class="stages">
+            ${STAGES.map((s,i)=>`
+              <div class="stage ${i<it.stage?'done':''} ${i===it.stage?'current':''}">
+                <div class="dot" onclick="setStage('${it.id}',${i})"></div>
+                <div class="lbl">${s}</div>
+              </div>`).join('')}
+          </div>
+        </div>
+      `).join('')}
+    </div>`;
+  }).join('') || '<div class="empty">No items for this month.</div>';
+}
+function setStage(id,i){
+  const it = state.items.find(x=>x.id===id);
+  const newStage = it.stage===i ? Math.max(0,i-1) : i;
+  it.log.push({d:nowStr(),t:`Stage moved to "${STAGES[newStage]}".`});
+  it.stage = newStage;
+  save(); render();
+}
+function delItem(id){ state.items = state.items.filter(x=>x.id!==id); save(); render(); }
+
+function renderIdeas(){
+  const el = document.getElementById('ideaList');
+  if(!state.ideas.length){ el.innerHTML = '<div class="empty">No ideas parked yet. Drop references or raw ideas here before they become calendar items.</div>'; return; }
+  el.innerHTML = state.ideas.map(idea=>`
+    <div class="idea">
+      <div style="flex:1;">
+        <div class="idea-text">${idea.text}</div>
+        <div class="idea-meta">${idea.client} &middot; added by ${idea.addedBy}${idea.ref?` &middot; <a href="${idea.ref}" target="_blank">reference link</a>`:''}</div>
+      </div>
+      <div class="idea-actions">
+        <span class="promote" onclick="promoteIdea('${idea.id}')">Promote to calendar</span>
+        <span class="del-x" onclick="delIdea('${idea.id}')">&times;</span>
+      </div>
+    </div>
+  `).join('');
+}
+function delIdea(id){ state.ideas = state.ideas.filter(x=>x.id!==id); save(); render(); }
+function promoteIdea(id){
+  const idea = state.ideas.find(x=>x.id===id);
+  document.getElementById('overlay').classList.remove('open');
+  openItemModal({client:idea.client, topic:idea.text});
+  state.ideas = state.ideas.filter(x=>x.id!==id);
+}
+
+function render(){ renderTabs(); renderLegend(); renderPipeline(); renderIdeas(); }
+
+/* MODALS */
+function closeModal(){ document.getElementById('overlay').classList.remove('open'); }
+function openModal(html){ document.getElementById('modalbody').innerHTML = html; document.getElementById('overlay').classList.add('open'); }
+
+function openItemModal(prefill){
+  prefill = prefill || {};
+  openModal(`
+    <h3>Add calendar item</h3>
+    <div class="field"><label>Client</label><select id="m-client">${CLIENTS.map(c=>`<option ${c===prefill.client?'selected':''}>${c}</option>`).join('')}</select></div>
+    <div class="field"><label>Topic / theme</label><input id="m-topic" value="${(prefill.topic||'').replace(/"/g,'&quot;')}" placeholder="e.g. 5 Ways to Improve Your Oral Health"></div>
+    <div class="row2">
+      <div class="field"><label>Format</label><select id="m-format">${FORMATS.map(f=>`<option>${f}</option>`).join('')}</select></div>
+      <div class="field"><label>Owner</label><input id="m-owner" placeholder="e.g. Jay" value="Jay"></div>
+    </div>
+    <div class="field"><label>Product</label><input id="m-product" placeholder="Product name"></div>
+    <div class="row2">
+      <div class="field"><label>Date</label><input type="date" id="m-date"></div>
+      <div class="field"><label>Month</label><input type="month" id="m-month" value="2026-07"></div>
+    </div>
+    <div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button><button class="btn-solid" onclick="saveItem()">Add</button></div>
+  `);
+}
+function saveItem(){
+  const topic = document.getElementById('m-topic').value.trim();
+  if(!topic) return;
+  const dateVal = document.getElementById('m-date').value;
+  const d = dateVal ? new Date(dateVal) : null;
+  state.items.push({
+    id:c(), client:document.getElementById('m-client').value, topic,
+    format:document.getElementById('m-format').value, owner:document.getElementById('m-owner').value||'Unassigned',
+    product:document.getElementById('m-product').value||'-',
+    date: d ? d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : 'TBD',
+    day: d ? d.toLocaleDateString('en-US',{weekday:'short'}) : '',
+    month: document.getElementById('m-month').value || '2026-07',
+    stage:0, log:[{d:nowStr(),t:'Item created.'}]
+  });
+  save(); render(); closeModal();
+}
+
+function openDetail(id){
+  const it = state.items.find(x=>x.id===id);
+  openModal(`
+    <h3>${it.topic}</h3>
+    <div class="kv"><div class="k">Client</div><div class="v">${it.client}</div></div>
+    <div class="kv"><div class="k">Format</div><div class="v">${it.format}</div></div>
+    <div class="kv"><div class="k">Product</div><div class="v">${it.product}</div></div>
+    <div class="kv"><div class="k">Date</div><div class="v">${it.date}${it.day?' · '+it.day:''}</div></div>
+    <div class="kv"><div class="k">Owner</div><div class="v">${it.owner}</div></div>
+    <div class="kv"><div class="k">Stage</div><div class="v">${STAGES[it.stage]}</div></div>
+    <div class="detail-section">
+      <h4>Log a swap or change</h4>
+      <div class="field"><textarea id="m-changetext" placeholder="e.g. Swapped BP monitor angle for trending 'morning routine' hook per Instagram trend."></textarea></div>
+      <button class="btn-solid" style="width:100%;" onclick="logChange('${it.id}')">Add to log</button>
+    </div>
+    <div class="detail-section">
+      <h4>Change log</h4>
+      ${it.log.slice().reverse().map(l=>`<div class="log-entry"><div class="ldate">${l.d}</div><div class="ltext">${l.t}</div></div>`).join('')}
+    </div>
+    <div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Close</button></div>
+  `);
+}
+function logChange(id){
+  const txt = document.getElementById('m-changetext').value.trim();
+  if(!txt) return;
+  const it = state.items.find(x=>x.id===id);
+  it.log.push({d:nowStr(),t:txt});
+  save(); openDetail(id);
+}
+
+function openIdeaModal(){
+  openModal(`
+    <h3>Add idea</h3>
+    <div class="field"><label>Client</label><select id="i-client">${CLIENTS.map(c=>`<option>${c}</option>`).join('')}</select></div>
+    <div class="field"><label>Idea / raw note</label><textarea id="i-text" placeholder="Idea from Claude, a trend you spotted, or a competitor reference"></textarea></div>
+    <div class="field"><label>Reference link (optional)</label><input id="i-ref" placeholder="Instagram/TikTok link etc."></div>
+    <div class="field"><label>Added by</label><input id="i-owner" value="Jay"></div>
+    <div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Cancel</button><button class="btn-solid" onclick="saveIdea()">Add</button></div>
+  `);
+}
+function saveIdea(){
+  const text = document.getElementById('i-text').value.trim();
+  if(!text) return;
+  state.ideas.push({id:c(), client:document.getElementById('i-client').value, text, ref:document.getElementById('i-ref').value, addedBy:document.getElementById('i-owner').value||'-'});
+  save(); render(); closeModal();
+}
+
+function openSendModal(client, monthFilter){
+  const items = state.items.filter(i=>i.client===client && (monthFilter==='all' || i.month===monthFilter)).sort((a,b)=>a.date.localeCompare(b.date));
+  const lines = items.map(it=>`${it.date} — ${it.format}: ${it.topic}`).join('\n');
+  const monthLabel = monthFilter==='all' ? 'the full calendar' : monthFilter;
+  const waText = `Hi! Sharing the ${client} content calendar for ${monthLabel} for your review:\n\n${lines}\n\nLet us know if anything needs to change — happy to adjust before we move to production.`;
+  const emailSubject = `${client} — Content calendar for review`;
+  const emailBody = waText;
+  openModal(`
+    <h3>Send calendar — ${client}</h3>
+    <div class="field"><label>WhatsApp message</label><div class="send-preview">${waText}</div>
+      <button class="ghost-sm" onclick="copyText(\`${waText.replace(/`/g,"'")}\`)">Copy text</button>
+      <button class="ghost-sm" onclick="window.open('https://wa.me/?text='+encodeURIComponent(\`${waText.replace(/`/g,"'")}\`),'_blank')">Open WhatsApp</button>
+    </div>
+    <div class="field" style="margin-top:14px;"><label>Email</label><div class="send-preview">Subject: ${emailSubject}\n\n${emailBody}</div>
+      <button class="ghost-sm" onclick="copyText(\`${emailBody.replace(/`/g,"'")}\`)">Copy body</button>
+      <button class="ghost-sm" onclick="window.open('mailto:?subject='+encodeURIComponent('${emailSubject}')+'&body='+encodeURIComponent(\`${emailBody.replace(/`/g,"'")}\`),'_blank')">Open email</button>
+    </div>
+    <div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Close</button></div>
+  `);
+}
+function copyText(t){ navigator.clipboard.writeText(t); }
+
+document.getElementById('overlay').addEventListener('click',(e)=>{ if(e.target.id==='overlay') closeModal(); });
+load();
+</script>
+</body>
+</html>
