@@ -185,7 +185,6 @@
     <div class="userbox">
       <div class="who"><div class="nm" id="tm-name"></div><div class="rl" id="tm-role">Team</div></div>
       <button class="btn-finance" id="financeBtn" onclick="openFinance()">Finance</button>
-      <button class="btn-activity" id="activityBtn" onclick="openActivity()">Activity</button>
       <button class="btn-dhruv" id="dhruvBtn" onclick="openInternalApprovals()">Dhruv's approval <span class="qn" id="dhruvQn">0</span></button>
       <div class="avatar" id="tm-av"></div>
       <button class="logout" onclick="logout()">Log out</button>
@@ -411,9 +410,8 @@ async function renderTeam(s){
   frame.onload=()=>bridgeFrame(s.name);
   if(!frame.src || frame.src.endsWith('about:blank')) frame.src=CONTENT_FILE;
   else bridgeFrame(s.name);
-  // Finance + Activity for all internal team; Dhruv's approval for admin only
+  // Finance for all internal team; Dhruv's approval for admin only
   document.getElementById('financeBtn').style.display='inline-block';
-  document.getElementById('activityBtn').style.display='inline-block';
   const btn=document.getElementById('dhruvBtn');
   if(isAdmin){ btn.style.display='inline-flex'; await refreshDhruvCount(); }
   else { btn.style.display='none'; }
@@ -424,10 +422,12 @@ async function renderTeam(s){
    file itself stays unchanged. Only works while the frame is same-origin
    (files served/opened together). ---- */
 function frameState(win){ try{ return win.eval('state'); }catch(e){ return null; } }
+let currentEditor='';   // who is signed in now — read dynamically when stamping edits
 function patchFrame(name){
   let win; try{ win=document.getElementById('contentFrame').contentWindow; }catch(e){ return; }
   const st=frameState(win);
   if(!win || !st) return;
+  currentEditor=name;   // always refresh, even if functions are already wrapped
   ['setStage','logChange','saveItem'].forEach(fnName=>{
     const orig=win[fnName];
     if(typeof orig!=='function' || orig.__attr) return;
@@ -438,10 +438,11 @@ function patchFrame(name){
       const r=orig.apply(this, arguments);
       try{
         (s.items||[]).forEach(it=>(it.log||[]).forEach(l=>{
-          if(!before.has(l) && l && typeof l.t==='string' && !l.by){ l.by=name; l.t=l.t+' — by '+name; }
+          if(!before.has(l) && l && typeof l.t==='string' && !l.by){ l.by=currentEditor; l.t=l.t+' — by '+currentEditor; }
         }));
         if(typeof win.save==='function') win.save();
         if(typeof win.render==='function') win.render();
+        annotatePipeline(win);
       }catch(e){}
       return r;
     };
@@ -472,34 +473,58 @@ async function bridgeFrame(name){
     wrapped.__sync=true;
     win.save=wrapped;
   }
+  // Annotate the pipeline with who moved each stage, re-running after every render.
+  const origRender=win.render;
+  if(typeof origRender==='function' && !origRender.__annot){
+    const wrapped=function(){ const r=origRender.apply(this, arguments); try{ annotatePipeline(win); }catch(e){} return r; };
+    wrapped.__annot=true;
+    win.render=wrapped;
+  }
   // Then pull the shared content into the frame (if the store already has data).
   try{
     const shared=await storeGet('vaelo-content-state');
-    if(shared && shared.items){ win.eval('state='+JSON.stringify(shared)); if(typeof win.render==='function') win.render(); }
+    if(shared && shared.items){ win.eval('state='+JSON.stringify(shared)); }
   }catch(e){}
+  try{ if(typeof win.render==='function') win.render(); }catch(e){}
+  try{ annotatePipeline(win); }catch(e){}
 }
 
-/* ---- Dhruv's activity feed: who changed what, newest first ---- */
-function openActivity(){
-  let items=[];
-  try{ const st=frameState(document.getElementById('contentFrame').contentWindow); items=(st&&st.items)||[]; }catch(e){}
-  const acts=[];
-  items.forEach(it=>(it.log||[]).forEach(l=>{ if(l.by) acts.push({by:l.by, d:l.d, action:String(l.t).replace(/ — by .*$/,''), topic:it.topic, client:it.client}); }));
-  acts.sort((a,b)=>String(b.d).localeCompare(String(a.d)));
-  const body = acts.length ? `<table class="grid">
-    <thead><tr><th>When</th><th>Who</th><th>Change</th><th>Item</th></tr></thead>
-    <tbody>${acts.slice(0,40).map(a=>`<tr>
-      <td class="cal-date">${esc(a.d)}</td><td style="font-weight:500;">${esc(a.by)}</td>
-      <td>${esc(a.action)}</td>
-      <td><div>${esc(a.topic)}</div><div style="color:var(--text-muted);font-size:11px;">${esc(a.client||'')}</div></td>
-    </tr>`).join('')}</tbody></table>`
-    : '<div class="empty">No tracked changes yet. Edits made by team members while signed in will appear here with their name.</div>';
-  document.getElementById('modalbody').innerHTML=`
-    <h3>Team activity</h3>
-    <p class="sub">Who moved or updated items in the pipeline, newest first.</p>
-    ${body}
-    <div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Close</button></div>`;
-  document.getElementById('overlay').classList.add('open');
+/* ---- Names on the pipeline: under each stage dot, show who moved it there.
+   Reads each item's change log (stamped "... — by NAME") and injects the
+   name beneath the matching stage in the embedded pipeline. Team/Dhruv only —
+   clients use a separate view that never shows names. ---- */
+function stageMovers(it){
+  const map={};
+  (it.log||[]).forEach(l=>{
+    if(!l.by || typeof l.t!=='string') return;
+    const m=/Stage moved to "([^"]+)"/.exec(l.t);
+    if(m){ const idx=STAGES.indexOf(m[1]); if(idx>=0) map[idx]=l.by; }
+  });
+  return map;
+}
+function annotatePipeline(win){
+  let doc, st;
+  try{ doc=win.document; st=frameState(win); }catch(e){ return; }
+  if(!doc || !st) return;
+  const byId={}; st.items.forEach(it=>byId[it.id]=it);
+  doc.querySelectorAll('#pipelineList .item').forEach(node=>{
+    const dot=node.querySelector('.dot[onclick]');
+    if(!dot) return;
+    const m=/setStage\('([^']+)'/.exec(dot.getAttribute('onclick')||'');
+    if(!m) return;
+    const it=byId[m[1]]; if(!it) return;
+    const movers=stageMovers(it);
+    node.querySelectorAll('.stages .stage').forEach((sEl,i)=>{
+      const old=sEl.querySelector('.by-inject'); if(old) old.remove();
+      if(movers[i]){
+        const el=doc.createElement('div');
+        el.className='by-inject';
+        el.textContent=movers[i];
+        el.style.cssText='font-size:8px;color:#7A9B76;margin-top:3px;text-align:center;line-height:1.1;font-family:JetBrains Mono,monospace;max-width:60px;overflow:hidden;text-overflow:ellipsis;';
+        sEl.appendChild(el);
+      }
+    });
+  });
 }
 async function refreshDhruvCount(){
   const content=await getContent();
@@ -530,7 +555,7 @@ async function internalApprove(id){
   const content=window.__content;
   const it=content.items.find(x=>x.id===id); if(!it) return;
   it.stage=5; // Internal approval -> Client approval
-  it.log=it.log||[]; it.log.push({d:today(),t:'Internal approval by Dhruv.'});
+  it.log=it.log||[]; it.log.push({d:today(),t:'Stage moved to "Client approval". — by Dhruv', by:'Dhruv'});
   await storeSet('vaelo-content-state', content);
   toast('Approved by Dhruv ✓');
   await refreshDhruvCount();
@@ -614,7 +639,7 @@ async function clientApprove(id){
   const s=getSession(), content=window.__content;
   const it=content.items.find(x=>x.id===id); if(!it) return;
   it.stage = it.stage===1?2:6;
-  it.log=it.log||[]; it.log.push({d:today(),t:`Client approval by ${s.name} (${s.client}).`});
+  it.log=it.log||[]; it.log.push({d:today(),t:`Stage moved to "${STAGES[it.stage]}". — by ${s.name}`, by:s.name});
   await storeSet('vaelo-content-state', content);
   toast('Approved — thank you!'); renderClient(s);
 }
