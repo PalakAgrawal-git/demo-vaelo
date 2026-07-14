@@ -184,6 +184,7 @@
     <div class="top-brand"><div class="brand-mark">V</div><div><h1 class="disp">Content pipeline</h1><span id="tm-sub">Internal workspace</span></div></div>
     <div class="userbox">
       <div class="who"><div class="nm" id="tm-name"></div><div class="rl" id="tm-role">Team</div></div>
+      <button class="btn-activity" id="refreshBtn" onclick="refreshFromSheet()" style="display:none;">↻ Refresh</button>
       <button class="btn-finance" id="financeBtn" onclick="openFinance()">Finance</button>
       <button class="btn-dhruv" id="dhruvBtn" onclick="openInternalApprovals()">Dhruv's approval <span class="qn" id="dhruvQn">0</span></button>
       <div class="avatar" id="tm-av"></div>
@@ -410,8 +411,9 @@ async function renderTeam(s){
   frame.onload=()=>bridgeFrame(s.name);
   if(!frame.src || frame.src.endsWith('about:blank')) frame.src=CONTENT_FILE;
   else bridgeFrame(s.name);
-  // Finance for all internal team; Dhruv's approval for admin only
+  // Finance + Refresh for all internal team; Dhruv's approval for admin only
   document.getElementById('financeBtn').style.display='inline-block';
+  document.getElementById('refreshBtn').style.display='inline-block';
   const btn=document.getElementById('dhruvBtn');
   if(isAdmin){ btn.style.display='inline-flex'; await refreshDhruvCount(); }
   else { btn.style.display='none'; }
@@ -487,6 +489,26 @@ async function bridgeFrame(name){
   }catch(e){}
   try{ if(typeof win.render==='function') win.render(); }catch(e){}
   try{ annotatePipeline(win); }catch(e){}
+  relabelSyncTag(win);
+}
+
+/* The embedded pipeline has its own "sync failed" label (it uses Claude-only
+   storage). Relabel it so it reflects our Google Sheet sync instead. */
+function relabelSyncTag(win){
+  try{ var t=win.document.getElementById('synctag'); if(t) t.textContent = SYNC_URL ? 'Google Sheet ✓' : 'local only'; }catch(e){}
+}
+
+/* Pull the latest content from the Sheet and show it in the pipeline now,
+   without a full page reload. */
+async function refreshFromSheet(){
+  const win=document.getElementById('contentFrame').contentWindow;
+  toast('Refreshing from Google Sheet…');
+  const shared=await storeGet('vaelo-content-state');
+  try{
+    if(shared && shared.items){ win.eval('state='+JSON.stringify(shared)); if(typeof win.render==='function') win.render(); annotatePipeline(win); }
+    relabelSyncTag(win);
+    toast('Pipeline updated from Google Sheet');
+  }catch(e){ toast('Could not refresh (open via a server/host, not file://)'); }
 }
 
 /* ---- Names on the pipeline: under each stage dot, show who moved it there.
