@@ -261,7 +261,7 @@ const USERS = [
   { user:'marigold.head',  pass:'Marigold@head',   name:'Pranay',          role:'client-head',  client:'Marigold Miraaya' },
 ];
 
-const CONTENT_FILE = 'vaelo-content.html';      // embedded, unchanged
+const CONTENT_FILE = 'vaelo-content.html?v=8stage';  // ?v busts browser cache when the pipeline file changes
 
 /* ============================================================
    GOOGLE SHEETS SYNC
@@ -290,7 +290,7 @@ function updateSyncState(){
   el.textContent = SYNC_URL ? '● connected' : '○ local only';
   el.style.color = SYNC_URL ? 'var(--sage)' : 'var(--text-muted)';
 }
-const STAGES = ['Idea','Calendar sent','Calendar approved','Creative in progress','Internal approval','Client approval','Scheduled/Posted'];
+const STAGES = ['Idea','Dhruv approval','Calendar sent','Calendar approved','Creative in progress','Internal approval','Client approval','Scheduled/Posted'];
 const SESSION_KEY = 'vaelo-session';
 
 const EXPENSES = {
@@ -550,25 +550,28 @@ function annotatePipeline(win){
 }
 async function refreshDhruvCount(){
   const content=await getContent();
-  const n=content.items.filter(i=>i.stage===4).length; // awaiting internal approval
+  const n=content.items.filter(i=>i.stage===1||i.stage===5).length; // awaiting Dhruv (calendar + internal)
   document.getElementById('dhruvQn').textContent=n;
 }
 
-/* ---- Dhruv's internal-approval queue (stage 4 = Internal approval) ---- */
+/* ---- Dhruv's approval queue: TWO gates — stage 1 (Dhruv approval, before
+   calendar is sent) and stage 5 (Internal approval, before client sees creative) ---- */
 function closeModal(){ const m=document.querySelector('#overlay .modal'); if(m) m.classList.remove('wide'); document.getElementById('overlay').classList.remove('open'); }
 async function openInternalApprovals(){
   const content=await getContent();
-  const items=content.items.filter(i=>i.stage===4).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
-  const body=items.length? items.map(it=>`
-    <div class="appr await">
+  const items=content.items.filter(i=>i.stage===1||i.stage===5).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  const body=items.length? items.map(it=>{
+    const gate = it.stage===1 ? 'Calendar approval (before send)' : 'Internal approval (creative)';
+    return `<div class="appr await">
       <div class="appr-l"><div class="t">${esc(it.topic)}</div>
-        <div class="m"><span class="fmt-badge">${esc(it.format)}</span><span>${esc(it.client)}</span><span class="cal-date">${esc(it.date)}</span><span class="appr-gate">· Internal approval</span></div></div>
+        <div class="m"><span class="fmt-badge">${esc(it.format)}</span><span>${esc(it.client)}</span><span class="cal-date">${esc(it.date)}</span><span class="appr-gate">· ${gate}</span></div></div>
       <div class="appr-actions"><button class="btn-approve" onclick="internalApprove('${it.id}')">Dhruv approve</button></div>
-    </div>`).join('')
-    : '<div class="empty">Nothing waiting on internal approval right now.</div>';
+    </div>`;
+  }).join('')
+    : '<div class="empty">Nothing waiting on your approval right now.</div>';
   document.getElementById('modalbody').innerHTML=`
     <h3>Dhruv's approval queue</h3>
-    <p class="sub">Items at the internal-approval gate. Approving moves them on to client approval.</p>
+    <p class="sub">Two gates you own: the calendar before it's sent to the client, and the creative before final client approval.</p>
     ${body}
     <div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Close</button></div>`;
   document.getElementById('overlay').classList.add('open');
@@ -576,8 +579,8 @@ async function openInternalApprovals(){
 async function internalApprove(id){
   const content=window.__content;
   const it=content.items.find(x=>x.id===id); if(!it) return;
-  it.stage=5; // Internal approval -> Client approval
-  it.log=it.log||[]; it.log.push({d:today(),t:'Stage moved to "Client approval". — by Dhruv', by:'Dhruv'});
+  it.stage = it.stage===1 ? 2 : 6;   // Dhruv approval -> Calendar sent, or Internal approval -> Client approval
+  it.log=it.log||[]; it.log.push({d:today(),t:`Stage moved to "${STAGES[it.stage]}". — by Dhruv`, by:'Dhruv'});
   await storeSet('vaelo-content-state', content);
   toast('Approved by Dhruv ✓');
   await refreshDhruvCount();
@@ -588,9 +591,9 @@ async function internalApprove(id){
 
 /* ============================================================ CLIENT (scoped, read-only) */
 function statusChip(stage){
-  if(stage>=6) return '<span class="status-chip st-posted">Scheduled / Posted</span>';
-  if(stage===1||stage===5) return '<span class="status-chip st-appr">Awaiting your approval</span>';
-  if(stage>=3) return '<span class="status-chip st-prog">In production</span>';
+  if(stage>=7) return '<span class="status-chip st-posted">Scheduled / Posted</span>';
+  if(stage===2||stage===6) return '<span class="status-chip st-appr">Awaiting your approval</span>';
+  if(stage>=4) return '<span class="status-chip st-prog">In production</span>';
   return '<span class="status-chip st-plan">Planned</span>';
 }
 async function renderClient(s){
@@ -602,7 +605,7 @@ async function renderClient(s){
 
   const content=await getContent();
   const mine=content.items.filter(i=>i.client===brand).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
-  const posted=mine.filter(i=>i.stage>=6).length, inprod=mine.filter(i=>i.stage>=3&&i.stage<6).length;
+  const posted=mine.filter(i=>i.stage>=7).length, inprod=mine.filter(i=>i.stage>=4&&i.stage<7).length;
   const fin=await getFinance();
   const finList=(fin[brand]||[]).slice().sort((a,b)=>String(a.date).localeCompare(String(b.date)));
   const spent=finList.reduce((a,b)=>a+b.amt,0);
@@ -612,7 +615,7 @@ async function renderClient(s){
     <div class="stat good"><div class="n mono">${posted}</div><div class="l">Published</div></div>
     <div class="stat"><div class="n mono">${inprod}</div><div class="l">In production</div></div>
     ${isHead?`<div class="stat"><div class="n mono" style="font-size:18px;">${inr(spent)}</div><div class="l">Billed this month</div></div>`
-             :`<div class="stat warn"><div class="n mono">${mine.filter(i=>i.stage===1||i.stage===5).length}</div><div class="l">Awaiting you</div></div>`}`;
+             :`<div class="stat warn"><div class="n mono">${mine.filter(i=>i.stage===2||i.stage===6).length}</div><div class="l">Awaiting you</div></div>`}`;
 
   // Expenses/billing — client HEAD only. Amounts visible; paid/unpaid stays internal to Vaelo.
   const expSec=document.getElementById('cl-expenses-sec');
@@ -634,10 +637,10 @@ async function renderClient(s){
       </tbody></table>` : '<div class="empty">No billing items yet.</div>';
   } else { expSec.style.display='none'; }
 
-  const pending=mine.filter(i=>i.stage===1||i.stage===5);
+  const pending=mine.filter(i=>i.stage===2||i.stage===6);
   document.getElementById('cl-appr-count').textContent=pending.length;
   document.getElementById('cl-approvals').innerHTML = pending.length? pending.map(it=>{
-    const gate=it.stage===1?'Calendar approval':'Final creative approval';
+    const gate=it.stage===2?'Calendar approval':'Final creative approval';
     return `<div class="appr await">
       <div class="appr-l"><div class="t">${esc(it.topic)}</div>
         <div class="m"><span class="fmt-badge">${esc(it.format)}</span><span>${esc(it.product||'')}</span><span class="cal-date">${esc(it.date)}</span><span class="appr-gate">· ${gate}</span></div></div>
@@ -660,7 +663,7 @@ async function renderClient(s){
 async function clientApprove(id){
   const s=getSession(), content=window.__content;
   const it=content.items.find(x=>x.id===id); if(!it) return;
-  it.stage = it.stage===1?2:6;
+  it.stage = it.stage===2?3:7;   // client approves calendar (2->3) or final creative (6->7)
   it.log=it.log||[]; it.log.push({d:today(),t:`Stage moved to "${STAGES[it.stage]}". — by ${s.name}`, by:s.name});
   await storeSet('vaelo-content-state', content);
   toast('Approved — thank you!'); renderClient(s);

@@ -26,7 +26,7 @@
 var STORE_TAB = 'store';
 var FIN_TAB   = 'Finance';
 var CONTENT_CLIENT = 'SimpliCare';   // this spreadsheet is the SimpliCare calendar
-var STAGES = ['Idea','Calendar sent','Calendar approved','Creative in progress','Internal approval','Client approval','Scheduled/Posted'];
+var STAGES = ['Idea','Dhruv approval','Calendar sent','Calendar approved','Creative in progress','Internal approval','Client approval','Scheduled/Posted'];
 
 function ss_(){ return SpreadsheetApp.getActiveSpreadsheet(); }
 function tab_(name){ var s=ss_().getSheetByName(name); if(!s) s=ss_().insertSheet(name); return s; }
@@ -38,16 +38,16 @@ function parseMonth_(d){ var m={jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun
 
 function statusToStage_(status, fallback){
   var s=String(status||'').toLowerCase();
-  if(/post|schedul|publish|live|done/.test(s)) return 6;
-  if(/ready|approv/.test(s)) return 5;
-  if(/progress|wip|edit|draft|film|shoot/.test(s)) return 3;
-  if(/plan|idea|brief/.test(s)) return 1;
-  return fallback!=null?fallback:1;
+  if(/post|schedul|publish|live|done/.test(s)) return 7;   // Scheduled/Posted
+  if(/ready|approv/.test(s)) return 6;                      // Client approval
+  if(/progress|wip|edit|draft|film|shoot/.test(s)) return 4;// Creative in progress
+  if(/plan|idea|brief/.test(s)) return 2;                   // Calendar sent
+  return fallback!=null?fallback:2;
 }
 function stageToStatus_(stage){
-  if(stage>=6) return 'Posted';
-  if(stage===5) return 'Ready';
-  if(stage>=3) return 'Work In Progress';
+  if(stage>=7) return 'Posted';
+  if(stage>=6) return 'Ready';
+  if(stage>=4) return 'Work In Progress';
   return 'Planned';
 }
 

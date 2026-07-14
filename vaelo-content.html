@@ -138,7 +138,7 @@
 <div class="overlay" id="overlay"><div class="modal" id="modalbody"></div></div>
 
 <script>
-const STAGES = ['Idea','Calendar sent','Calendar approved','Creative in progress','Internal approval','Client approval','Scheduled/Posted'];
+const STAGES = ['Idea','Dhruv approval','Calendar sent','Calendar approved','Creative in progress','Internal approval','Client approval','Scheduled/Posted'];
 const FORMATS = ['Carousel','Static Post','UGC Reel','Awareness Carousel','Video'];
 const CLIENTS = ['SimpliCare','Zerolys','Marigold Miraaya','DVOC Institute','Tribal Zone'];
 
@@ -168,7 +168,7 @@ function seed(){
     ['29 Jul 2026','Wed','Planned','Static Post','Product Spotlight — Wrist BP Monitor (U60AH)','Wrist BP Monitor U60AH'],
     ['31 Jul 2026','Fri','Planned','UGC Reel','Night Routine — 2-in-1 Oral Care System','2-in-1 Oral Care System FC181-W'],
   ];
-  const statusToStage = {'Posted':6,'Ready':4,'Work In Progress':3,'Planned':2};
+  const statusToStage = {'Posted':7,'Ready':6,'Work In Progress':4,'Planned':2};
   state.items = raw.map(r=>({
     id:c(), client:'SimpliCare', month:'2026-07', date:r[0], day:r[1],
     format:r[3], topic:r[4], product:r[5], owner:'Jay',
