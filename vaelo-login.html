@@ -524,6 +524,12 @@ function stageMovers(it){
   });
   return map;
 }
+// Dhruv's yes/no decision per gate stage: latest decision wins.
+function gateDecisions(it){
+  const out={};
+  (it.log||[]).forEach(l=>{ if(l && l.decision && l.at!=null){ out[l.at]={ok:l.decision==='yes'}; } });
+  return out;
+}
 function annotatePipeline(win){
   let doc, st;
   try{ doc=win.document; st=frameState(win); }catch(e){ return; }
@@ -536,13 +542,20 @@ function annotatePipeline(win){
     if(!m) return;
     const it=byId[m[1]]; if(!it) return;
     const movers=stageMovers(it);
+    const decisions=gateDecisions(it);
     node.querySelectorAll('.stages .stage').forEach((sEl,i)=>{
       const old=sEl.querySelector('.by-inject'); if(old) old.remove();
-      if(movers[i]){
-        const el=doc.createElement('div');
-        el.className='by-inject';
+      const el=doc.createElement('div');
+      el.className='by-inject';
+      el.style.cssText='font-size:8px;margin-top:3px;text-align:center;line-height:1.1;font-family:JetBrains Mono,monospace;max-width:64px;overflow:hidden;text-overflow:ellipsis;';
+      if(decisions[i]){                       // Dhruv's yes/no at this gate
+        el.textContent=(decisions[i].ok?'✓ ':'✗ ')+'Dhruv';
+        el.style.color=decisions[i].ok?'#7A9B76':'#E85C4A';
+        el.style.fontWeight='600';
+        sEl.appendChild(el);
+      } else if(movers[i]){                    // who moved it here
         el.textContent=movers[i];
-        el.style.cssText='font-size:8px;color:#7A9B76;margin-top:3px;text-align:center;line-height:1.1;font-family:JetBrains Mono,monospace;max-width:60px;overflow:hidden;text-overflow:ellipsis;';
+        el.style.color='#7A9B76';
         sEl.appendChild(el);
       }
     });
@@ -565,7 +578,7 @@ async function openInternalApprovals(){
     return `<div class="appr await">
       <div class="appr-l"><div class="t">${esc(it.topic)}</div>
         <div class="m"><span class="fmt-badge">${esc(it.format)}</span><span>${esc(it.client)}</span><span class="cal-date">${esc(it.date)}</span><span class="appr-gate">· ${gate}</span></div></div>
-      <div class="appr-actions"><button class="btn-approve" onclick="internalApprove('${it.id}')">Dhruv approve</button></div>
+      <div class="appr-actions"><button class="btn-change" onclick="dhruvDecide('${it.id}','no')">Reject ✗</button><button class="btn-approve" onclick="dhruvDecide('${it.id}','yes')">Approve ✓</button></div>
     </div>`;
   }).join('')
     : '<div class="empty">Nothing waiting on your approval right now.</div>';
@@ -576,13 +589,26 @@ async function openInternalApprovals(){
     <div class="modal-actions"><button class="btn-ghost" onclick="closeModal()">Close</button></div>`;
   document.getElementById('overlay').classList.add('open');
 }
-async function internalApprove(id){
+async function dhruvDecide(id, decision){
   const content=window.__content;
   const it=content.items.find(x=>x.id===id); if(!it) return;
-  it.stage = it.stage===1 ? 2 : 6;   // Dhruv approval -> Calendar sent, or Internal approval -> Client approval
-  it.log=it.log||[]; it.log.push({d:today(),t:`Stage moved to "${STAGES[it.stage]}". — by Dhruv`, by:'Dhruv'});
+  const gate=it.stage;   // 1 = calendar gate, 5 = internal gate
+  it.log=it.log||[];
+  if(decision==='yes'){
+    const next = gate===1 ? 2 : 6;
+    it.stage=next;
+    it.log.push({d:today(), t:`Stage moved to "${STAGES[next]}". — by Dhruv`, by:'Dhruv'});
+    it.log.push({d:today(), t:'Dhruv approval: APPROVED ✓', by:'Dhruv', decision:'yes', at:gate});
+    toast('Approved ✓');
+  } else {
+    let reason=''; try{ reason=(prompt('Reason for rejection (optional):')||'').trim(); }catch(e){}
+    const back = gate===1 ? 0 : 4;   // send back for rework
+    it.stage=back;
+    it.log.push({d:today(), t:`Stage moved to "${STAGES[back]}". — by Dhruv`, by:'Dhruv'});
+    it.log.push({d:today(), t:'Dhruv approval: REJECTED ✗'+(reason?' — '+reason:''), by:'Dhruv', decision:'no', at:gate});
+    toast('Rejected ✗ — sent back for rework');
+  }
   await storeSet('vaelo-content-state', content);
-  toast('Approved by Dhruv ✓');
   await refreshDhruvCount();
   openInternalApprovals();
   // nudge the embedded pipeline to re-read (works when it shares storage)

@@ -99,7 +99,13 @@ function contentFromSheet_(){
     var row=values[r];
     var date=v(row,cm.date); if(!date || !/\d/.test(date)) continue;  // skip non-date rows
     var prev=prevByDate[date]||{};
-    var stage=statusToStage_(v(row,cm.status), prev.stage);
+    // If the sheet's STATUS still matches the app's stage, keep the precise app
+    // stage (so pipeline-only gates like "Dhruv approval" survive the round-trip).
+    // If STATUS was edited in the sheet, follow the sheet.
+    var sheetStatus=v(row,cm.status);
+    var stage = (prev.stage!=null && stageToStatus_(prev.stage)===sheetStatus)
+                ? prev.stage
+                : statusToStage_(sheetStatus, prev.stage);
     var it={
       id: prev.id||genId_(), client: CONTENT_CLIENT, date: date,
       day: prev.day||'', month: prev.month||parseMonth_(date),
