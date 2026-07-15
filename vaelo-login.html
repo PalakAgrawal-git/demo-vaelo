@@ -317,7 +317,7 @@ const EXPENSES = {
 async function storeGet(key){
   if(SYNC_URL){
     try{
-      const r=await fetch(SYNC_URL+'?key='+encodeURIComponent(key), {method:'GET'});
+      const r=await fetch(SYNC_URL+'?key='+encodeURIComponent(key)+'&t='+Date.now(), {method:'GET', cache:'no-store'});
       const j=await r.json();
       if(j && typeof j.value==='string'){ try{ localStorage.setItem(key, j.value); }catch(e){} return JSON.parse(j.value); }
       if(j && j.value===null) return null; // key exists remotely but empty
@@ -378,7 +378,7 @@ async function getContent(){
 /* ============================================================ SESSION */
 function getSession(){ try{ return JSON.parse(localStorage.getItem(SESSION_KEY)); }catch(e){ return null; } }
 function setSession(s){ localStorage.setItem(SESSION_KEY, JSON.stringify(s)); }
-function logout(){ localStorage.removeItem(SESSION_KEY); document.getElementById('contentFrame').src='about:blank'; showScreen('login'); document.getElementById('f-user').value=''; document.getElementById('f-pass').value=''; }
+function logout(){ stopAutoSync(); localStorage.removeItem(SESSION_KEY); document.getElementById('contentFrame').src='about:blank'; showScreen('login'); document.getElementById('f-user').value=''; document.getElementById('f-pass').value=''; }
 function showScreen(name){ document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active', s.id==='screen-'+name)); }
 
 document.getElementById('loginForm').addEventListener('submit',(e)=>{
@@ -417,6 +417,7 @@ async function renderTeam(s){
   const btn=document.getElementById('dhruvBtn');
   if(isAdmin){ btn.style.display='inline-flex'; await refreshDhruvCount(); }
   else { btn.style.display='none'; }
+  startAutoSync();   // keep the pipeline in sync with teammates' changes
 }
 
 /* ---- Attribution: stamp the logged-in user's name onto pipeline edits.
@@ -496,6 +497,30 @@ async function bridgeFrame(name){
    storage). Relabel it so it reflects our Google Sheet sync instead. */
 function relabelSyncTag(win){
   try{ var t=win.document.getElementById('synctag'); if(t) t.textContent = SYNC_URL ? 'Google Sheet ✓' : 'local only'; }catch(e){}
+}
+
+/* Auto-sync: quietly poll the shared store so team members see each other's
+   changes without hitting Refresh. Only updates when something actually changed,
+   and never while a modal (mid-edit) is open in the pipeline. */
+let __autoSyncTimer=null;
+function contentSig(state){ return (state&&state.items||[]).map(i=>i.id+'|'+i.stage+'|'+i.topic+'|'+i.product+'|'+i.format).sort().join('~'); }
+function startAutoSync(){ stopAutoSync(); __autoSyncTimer=setInterval(autoSyncTick, 18000); }
+function stopAutoSync(){ if(__autoSyncTimer){ clearInterval(__autoSyncTimer); __autoSyncTimer=null; } }
+async function autoSyncTick(){
+  try{
+    if(!document.getElementById('screen-team').classList.contains('active')) return;
+    const win=document.getElementById('contentFrame').contentWindow;
+    const cur=frameState(win); if(!cur) return;
+    // don't yank data out from under someone who's editing (modal open)
+    try{ const ov=win.document.getElementById('overlay'); if(ov && ov.classList.contains('open')) return; }catch(e){}
+    const shared=await storeGet('vaelo-content-state');
+    if(!shared || !shared.items) return;
+    if(contentSig(shared)!==contentSig(cur)){
+      win.eval('state='+JSON.stringify(shared)); win.render(); annotatePipeline(win);
+      await refreshDhruvCount();
+      toast('Pipeline updated by a teammate');
+    }
+  }catch(e){}
 }
 
 /* Pull the latest content from the Sheet and show it in the pipeline now,
