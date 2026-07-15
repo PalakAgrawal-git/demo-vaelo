@@ -169,9 +169,28 @@ function writeKey_(key,value){
   }catch(e){}
 }
 
+/* ---------- diagnostics: hit ...exec?diag=1 to see per-client status ---------- */
+function diag_(){
+  var out={};
+  Object.keys(CLIENT_SHEETS).forEach(function(client){
+    var ref=CLIENT_SHEETS[client];
+    var d={ linked: ref?(ref==='THIS'?'THIS':'yes'):'no' };
+    if(!ref){ d.status='not linked (blank)'; out[client]=d; return; }
+    var ssx; try{ ssx=openForClient_(ref); }catch(e){ d.status='OPEN ERROR — likely not shared with this account'; d.error=String(e); out[client]=d; return; }
+    if(!ssx){ d.status='could NOT open (bad id, or not shared with this account)'; out[client]=d; return; }
+    d.opened=ssx.getName();
+    var info=findContentSheetIn_(ssx);
+    if(!info){ d.status='opened, but NO tab has DATE/STATUS/TOPIC headers'; d.tabsFound=ssx.getSheets().map(function(s){return s.getName();}); out[client]=d; return; }
+    d.status='OK'; d.contentTab=info.sheet.getName(); d.dataRows=info.values.length-info.headerRow-1;
+    out[client]=d;
+  });
+  return out;
+}
+
 /* ---------- endpoints ---------- */
 function doGet(e){
   var key=e&&e.parameter&&e.parameter.key;
+  if(e&&e.parameter&&e.parameter.diag){ return json_(diag_()); }
   if(key==='vaelo-content-state'){ return json_({key:key, value: contentFromSheet_()}); }
   if(key){ var all=readAll_(); return json_({key:key, value: all.hasOwnProperty(key)?all[key]:null}); }
   return json_(readAll_());
