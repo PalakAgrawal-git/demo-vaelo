@@ -81,7 +81,7 @@ function findAllContentSheetsIn_(spreadsheet){
     var values=rng.getValues();
     for(var r=0;r<Math.min(values.length,8);r++){
       var hdr=values[r].map(function(c){ return String(c).toLowerCase(); });
-      var status=hdr.findIndex(function(h){ return /status|stage/.test(h); });
+      var status=hdr.findIndex(function(h){ return /\bstatus\b/.test(h); });
       var topic=hdr.findIndex(function(h){ return /topic|theme|title|hook/.test(h); });
       var date=hdr.findIndex(function(h){ return /date/.test(h); });
       if(status>=0 && topic>=0 && date>=0){
