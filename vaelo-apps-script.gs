@@ -65,9 +65,15 @@ function readAll_(){ var sh=storeSheet_(); var rows=sh.getDataRange().getValues(
 function getStoreValue_(key){ var a=readAll_(); return a.hasOwnProperty(key)?a[key]:null; }
 function upsertStore_(key,value){ var sh=storeSheet_(); var rows=sh.getDataRange().getValues(); for(var i=1;i<rows.length;i++){ if(rows[i][0]===key){ sh.getRange(i+1,2).setValue(value); sh.getRange(i+1,3).setValue(new Date()); return; } } sh.appendRow([key,value,new Date()]); }
 
-/* ---------- find a content calendar tab inside a given spreadsheet ---------- */
-function findContentSheetIn_(spreadsheet){
-  var sheets=spreadsheet.getSheets();
+/* ---------- find ALL content calendar tabs inside a spreadsheet ----------
+   Column names are matched loosely so different clients' layouts work:
+     date  ← Date
+     status← Status / Stage
+     topic ← Topic / Theme / Title / Hook
+     format← Format / Type
+     product← Product (optional) */
+function findAllContentSheetsIn_(spreadsheet){
+  var res=[], sheets=spreadsheet.getSheets();
   for(var i=0;i<sheets.length;i++){
     var sh=sheets[i], name=sh.getName();
     if(name===STORE_TAB || name===FIN_TAB) continue;
@@ -75,19 +81,20 @@ function findContentSheetIn_(spreadsheet){
     var values=rng.getValues();
     for(var r=0;r<Math.min(values.length,8);r++){
       var hdr=values[r].map(function(c){ return String(c).toLowerCase(); });
-      var status=hdr.findIndex(function(h){ return /status/.test(h); });
-      var topic=hdr.findIndex(function(h){ return /topic/.test(h); });
+      var status=hdr.findIndex(function(h){ return /status|stage/.test(h); });
+      var topic=hdr.findIndex(function(h){ return /topic|theme|title|hook/.test(h); });
       var date=hdr.findIndex(function(h){ return /date/.test(h); });
       if(status>=0 && topic>=0 && date>=0){
-        return { sheet:sh, headerRow:r, values:values, colMap:{
+        res.push({ sheet:sh, headerRow:r, values:values, colMap:{
           date:date, status:status, topic:topic,
-          format: hdr.findIndex(function(h){ return /format/.test(h); }),
+          format: hdr.findIndex(function(h){ return /format|type/.test(h); }),
           product: hdr.findIndex(function(h){ return /product/.test(h); })
-        }};
+        }});
+        break;   // one header row per tab
       }
     }
   }
-  return null;
+  return res;
 }
 
 /* ---------- sheet → pipeline (all linked clients) ---------- */
@@ -124,10 +131,10 @@ function contentFromSheet_(){
   var synced=[], syncedClients={};
   Object.keys(CLIENT_SHEETS).forEach(function(client){
     var ssx=openForClient_(CLIENT_SHEETS[client]); if(!ssx) return;
-    var info=findContentSheetIn_(ssx); if(!info) return;
+    var infos=findAllContentSheetsIn_(ssx); if(!infos.length) return;
     syncedClients[client]=true;
     var prevByDate={}; blob.items.forEach(function(it){ if(it.client===client) prevByDate[it.date]=it; });
-    synced=synced.concat(itemsFromInfo_(info, client, prevByDate));
+    infos.forEach(function(info){ synced=synced.concat(itemsFromInfo_(info, client, prevByDate)); });
   });
   var others=blob.items.filter(function(it){ return !syncedClients[it.client]; });
   blob.items=others.concat(synced);
@@ -139,17 +146,19 @@ function contentFromSheet_(){
 function pushContentToSheet_(state){
   Object.keys(CLIENT_SHEETS).forEach(function(client){
     var ssx=openForClient_(CLIENT_SHEETS[client]); if(!ssx) return;
-    var info=findContentSheetIn_(ssx); if(!info) return;
-    var sh=info.sheet, cm=info.colMap, values=info.values, hr=info.headerRow;
+    var infos=findAllContentSheetsIn_(ssx); if(!infos.length) return;
     var byDate={}; (state.items||[]).forEach(function(it){ if(it.client===client) byDate[it.date]=it; });
-    for(var r=hr+1;r<values.length;r++){
-      var date=cell_(values[r][cm.date]); if(!date || !/\d/.test(date)) continue;
-      var it=byDate[date]; if(!it) continue;
-      if(cm.status>=0)  sh.getRange(r+1, cm.status+1).setValue(stageToStatus_(it.stage));
-      if(cm.topic>=0 && it.topic)   sh.getRange(r+1, cm.topic+1).setValue(it.topic);
-      if(cm.product>=0)             sh.getRange(r+1, cm.product+1).setValue(it.product);
-      if(cm.format>=0 && it.format) sh.getRange(r+1, cm.format+1).setValue(it.format);
-    }
+    infos.forEach(function(info){
+      var sh=info.sheet, cm=info.colMap, values=info.values, hr=info.headerRow;
+      for(var r=hr+1;r<values.length;r++){
+        var date=cell_(values[r][cm.date]); if(!date || !/\d/.test(date)) continue;
+        var it=byDate[date]; if(!it) continue;
+        if(cm.status>=0)  sh.getRange(r+1, cm.status+1).setValue(stageToStatus_(it.stage));
+        if(cm.topic>=0 && it.topic)   sh.getRange(r+1, cm.topic+1).setValue(it.topic);
+        if(cm.product>=0)             sh.getRange(r+1, cm.product+1).setValue(it.product);
+        if(cm.format>=0 && it.format) sh.getRange(r+1, cm.format+1).setValue(it.format);
+      }
+    });
   });
 }
 
@@ -179,9 +188,9 @@ function diag_(){
     var ssx; try{ ssx=openForClient_(ref); }catch(e){ d.status='OPEN ERROR — likely not shared with this account'; d.error=String(e); out[client]=d; return; }
     if(!ssx){ d.status='could NOT open (bad id, or not shared with this account)'; out[client]=d; return; }
     d.opened=ssx.getName();
-    var info=findContentSheetIn_(ssx);
-    if(!info){ d.status='opened, but NO tab has DATE/STATUS/TOPIC headers'; d.tabsFound=ssx.getSheets().map(function(s){return s.getName();}); out[client]=d; return; }
-    d.status='OK'; d.contentTab=info.sheet.getName(); d.dataRows=info.values.length-info.headerRow-1;
+    var infos=findAllContentSheetsIn_(ssx);
+    if(!infos.length){ d.status='opened, but NO tab has recognizable headers'; d.tabsFound=ssx.getSheets().map(function(s){return s.getName();}); out[client]=d; return; }
+    d.status='OK'; d.contentTabs=infos.map(function(i){return i.sheet.getName();}); d.dataRows=infos.reduce(function(a,i){return a+(i.values.length-i.headerRow-1);},0);
     out[client]=d;
   });
   return out;
