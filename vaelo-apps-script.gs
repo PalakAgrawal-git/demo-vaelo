@@ -1,31 +1,31 @@
 /**
- * VAELO — Google Sheets TWO-WAY sync, bound to YOUR real content calendar tab.
+ * VAELO — Google Sheets TWO-WAY sync, MULTI-CLIENT.
  * ------------------------------------------------------------
- * Instead of a separate tab, this reads/writes the content calendar tab you
- * already have (the one with DATE / STATUS / TOPIC / PRODUCT / FORMAT columns).
- * It finds that tab automatically by its headers.
+ * Links several client content-calendar spreadsheets to the app through ONE
+ * deployment. Each client's calendar tab (DATE / STATUS / TOPIC / PRODUCT /
+ * FORMAT) syncs both ways with that client's pipeline in the app.
  *
- *   • Sheet → pipeline: edit STATUS / TOPIC / PRODUCT / FORMAT in your sheet,
- *     hit ↻ Refresh in the app → the pipeline updates.
- *   • Pipeline → sheet: move a stage in the app → STATUS updates in your sheet
- *     (Topic/Product/Format too). Your other columns are never touched.
+ * ┌─ SET THIS UP ────────────────────────────────────────────────────────────┐
+ * │ In CLIENT_SHEETS below, map each client name to their spreadsheet:        │
+ * │   'THIS'  = the spreadsheet this script is attached to (its content tab). │
+ * │   ''      = not linked yet — that client is skipped.                      │
+ * │   a URL or ID = that client's separate spreadsheet.                       │
+ * │ The client name must EXACTLY match the app's client names.               │
+ * │ Every linked sheet must be owned by, or shared with, THIS Google account. │
+ * └───────────────────────────────────────────────────────────────────────────┘
  *
- * Rows are matched by DATE. Your extra columns (caption, hashtags, visual,
- * CTA, drive link, notes) are preserved.
- *
- * STATUS ↔ stage mapping:
- *   Planned            → Calendar sent / early stages
- *   Work In Progress   → Creative in progress
- *   Ready              → Client approval
- *   Posted / Scheduled → Scheduled / Posted
- *
- * AFTER pasting/updating this file you MUST redeploy:
- *   Deploy ▸ Manage deployments ▸ (pencil ✏ on the Web app) ▸ Version: New version ▸ Deploy.
+ * After editing this file: Deploy ▸ Manage deployments ▸ ✏ ▸ New version ▸ Deploy.
  */
+var CLIENT_SHEETS = {
+  'SimpliCare':       'THIS',   // calendar lives in this spreadsheet
+  'Zerolys':          '',       // paste Zerolys sheet URL or ID
+  'Marigold Miraaya': '',       // paste Marigold sheet URL or ID
+  'DVOC Institute':   '',       // paste URL or ID
+  'Tribal Zone':      ''        // paste URL or ID
+};
 
 var STORE_TAB = 'store';
 var FIN_TAB   = 'Finance';
-var CONTENT_CLIENT = 'SimpliCare';   // this spreadsheet is the SimpliCare calendar
 var STAGES = ['Idea','Dhruv approval','Calendar sent','Calendar approved','Creative in progress','Internal approval','Client approval','Scheduled/Posted'];
 
 function ss_(){ return SpreadsheetApp.getActiveSpreadsheet(); }
@@ -38,10 +38,10 @@ function parseMonth_(d){ var m={jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun
 
 function statusToStage_(status, fallback){
   var s=String(status||'').toLowerCase();
-  if(/post|schedul|publish|live|done/.test(s)) return 7;   // Scheduled/Posted
-  if(/ready|approv/.test(s)) return 6;                      // Client approval
-  if(/progress|wip|edit|draft|film|shoot/.test(s)) return 4;// Creative in progress
-  if(/plan|idea|brief/.test(s)) return 2;                   // Calendar sent
+  if(/post|schedul|publish|live|done/.test(s)) return 7;
+  if(/ready|approv/.test(s)) return 6;
+  if(/progress|wip|edit|draft|film|shoot/.test(s)) return 4;
+  if(/plan|idea|brief/.test(s)) return 2;
   return fallback!=null?fallback:2;
 }
 function stageToStatus_(stage){
@@ -51,15 +51,23 @@ function stageToStatus_(stage){
   return 'Planned';
 }
 
-/* ---------- key/value store (for the JSON blob + finance) ---------- */
+/* ---------- which spreadsheet for a client ---------- */
+function sheetIdFromRef_(ref){ var m=String(ref||'').match(/\/d\/([a-zA-Z0-9-_]+)/); return m?m[1]:String(ref||'').trim(); }
+function openForClient_(ref){
+  if(ref==='THIS') return ss_();
+  if(!ref) return null;                 // blank → not linked
+  try{ return SpreadsheetApp.openById(sheetIdFromRef_(ref)); }catch(e){ return null; }
+}
+
+/* ---------- key/value store (blob + finance) ---------- */
 function storeSheet_(){ var sh=ss_().getSheetByName(STORE_TAB); if(!sh){ sh=ss_().insertSheet(STORE_TAB); sh.appendRow(['key','value','updatedAt']); } return sh; }
 function readAll_(){ var sh=storeSheet_(); var rows=sh.getDataRange().getValues(); var out={}; for(var i=1;i<rows.length;i++){ if(rows[i][0]) out[rows[i][0]]=rows[i][1]; } return out; }
 function getStoreValue_(key){ var a=readAll_(); return a.hasOwnProperty(key)?a[key]:null; }
 function upsertStore_(key,value){ var sh=storeSheet_(); var rows=sh.getDataRange().getValues(); for(var i=1;i<rows.length;i++){ if(rows[i][0]===key){ sh.getRange(i+1,2).setValue(value); sh.getRange(i+1,3).setValue(new Date()); return; } } sh.appendRow([key,value,new Date()]); }
 
-/* ---------- find your content calendar tab by its headers ---------- */
-function findContentSheet_(){
-  var sheets=ss_().getSheets();
+/* ---------- find a content calendar tab inside a given spreadsheet ---------- */
+function findContentSheetIn_(spreadsheet){
+  var sheets=spreadsheet.getSheets();
   for(var i=0;i<sheets.length;i++){
     var sh=sheets[i], name=sh.getName();
     if(name===STORE_TAB || name===FIN_TAB) continue;
@@ -82,32 +90,22 @@ function findContentSheet_(){
   return null;
 }
 
-/* ---------- sheet → pipeline ---------- */
-function contentFromSheet_(){
-  var info=findContentSheet_();
-  var raw=getStoreValue_('vaelo-content-state');
-  var blob=raw?JSON.parse(raw):{items:[],ideas:[]};
-  if(!blob.items) blob.items=[];
-  if(!info) return JSON.stringify(blob);   // no content tab found → return blob unchanged
-
+/* ---------- sheet → pipeline (all linked clients) ---------- */
+function itemsFromInfo_(info, client, prevByDate){
   var cm=info.colMap, values=info.values, hr=info.headerRow;
-  var prevByDate={}; blob.items.forEach(function(it){ if(it.client===CONTENT_CLIENT) prevByDate[it.date]=it; });
   function v(row,i){ return i>=0?cell_(row[i]):''; }
-
-  var sc=[];
+  var out=[];
   for(var r=hr+1;r<values.length;r++){
     var row=values[r];
-    var date=v(row,cm.date); if(!date || !/\d/.test(date)) continue;  // skip non-date rows
+    var date=v(row,cm.date); if(!date || !/\d/.test(date)) continue;
     var prev=prevByDate[date]||{};
-    // If the sheet's STATUS still matches the app's stage, keep the precise app
-    // stage (so pipeline-only gates like "Dhruv approval" survive the round-trip).
-    // If STATUS was edited in the sheet, follow the sheet.
+    // keep the app's precise stage if the sheet STATUS still matches it
+    // (so pipeline-only gates like "Dhruv approval" survive the round-trip)
     var sheetStatus=v(row,cm.status);
     var stage = (prev.stage!=null && stageToStatus_(prev.stage)===sheetStatus)
-                ? prev.stage
-                : statusToStage_(sheetStatus, prev.stage);
+                ? prev.stage : statusToStage_(sheetStatus, prev.stage);
     var it={
-      id: prev.id||genId_(), client: CONTENT_CLIENT, date: date,
+      id: prev.id||genId_(), client: client, date: date,
       day: prev.day||'', month: prev.month||parseMonth_(date),
       format: cm.format>=0 ? v(row,cm.format) : (prev.format||''),
       topic:  v(row,cm.topic) || prev.topic || '',
@@ -115,30 +113,47 @@ function contentFromSheet_(){
       owner: prev.owner||'—', stage: stage, log: (prev.log||[]).slice()
     };
     if(prev.stage!=null && prev.stage!==stage){ it.log.push({d:today_(), t:'Stage moved to "'+STAGES[stage]+'". — by Sheet', by:'Sheet'}); }
-    sc.push(it);
+    out.push(it);
   }
-  var others=blob.items.filter(function(it){ return it.client!==CONTENT_CLIENT; });
-  blob.items=others.concat(sc);
+  return out;
+}
+function contentFromSheet_(){
+  var raw=getStoreValue_('vaelo-content-state');
+  var blob=raw?JSON.parse(raw):{items:[],ideas:[]};
+  if(!blob.items) blob.items=[];
+  var synced=[], syncedClients={};
+  Object.keys(CLIENT_SHEETS).forEach(function(client){
+    var ssx=openForClient_(CLIENT_SHEETS[client]); if(!ssx) return;
+    var info=findContentSheetIn_(ssx); if(!info) return;
+    syncedClients[client]=true;
+    var prevByDate={}; blob.items.forEach(function(it){ if(it.client===client) prevByDate[it.date]=it; });
+    synced=synced.concat(itemsFromInfo_(info, client, prevByDate));
+  });
+  var others=blob.items.filter(function(it){ return !syncedClients[it.client]; });
+  blob.items=others.concat(synced);
   upsertStore_('vaelo-content-state', JSON.stringify(blob));
   return JSON.stringify(blob);
 }
 
-/* ---------- pipeline → sheet (only STATUS/Topic/Product/Format; nothing else) ---------- */
+/* ---------- pipeline → sheet (write STATUS/Topic/Product/Format back) ---------- */
 function pushContentToSheet_(state){
-  var info=findContentSheet_(); if(!info) return;
-  var sh=info.sheet, cm=info.colMap, values=info.values, hr=info.headerRow;
-  var byDate={}; (state.items||[]).forEach(function(it){ if(it.client===CONTENT_CLIENT) byDate[it.date]=it; });
-  for(var r=hr+1;r<values.length;r++){
-    var date=cell_(values[r][cm.date]); if(!date || !/\d/.test(date)) continue;
-    var it=byDate[date]; if(!it) continue;
-    if(cm.status>=0)  sh.getRange(r+1, cm.status+1).setValue(stageToStatus_(it.stage));
-    if(cm.topic>=0 && it.topic)   sh.getRange(r+1, cm.topic+1).setValue(it.topic);
-    if(cm.product>=0)             sh.getRange(r+1, cm.product+1).setValue(it.product);
-    if(cm.format>=0 && it.format) sh.getRange(r+1, cm.format+1).setValue(it.format);
-  }
+  Object.keys(CLIENT_SHEETS).forEach(function(client){
+    var ssx=openForClient_(CLIENT_SHEETS[client]); if(!ssx) return;
+    var info=findContentSheetIn_(ssx); if(!info) return;
+    var sh=info.sheet, cm=info.colMap, values=info.values, hr=info.headerRow;
+    var byDate={}; (state.items||[]).forEach(function(it){ if(it.client===client) byDate[it.date]=it; });
+    for(var r=hr+1;r<values.length;r++){
+      var date=cell_(values[r][cm.date]); if(!date || !/\d/.test(date)) continue;
+      var it=byDate[date]; if(!it) continue;
+      if(cm.status>=0)  sh.getRange(r+1, cm.status+1).setValue(stageToStatus_(it.stage));
+      if(cm.topic>=0 && it.topic)   sh.getRange(r+1, cm.topic+1).setValue(it.topic);
+      if(cm.product>=0)             sh.getRange(r+1, cm.product+1).setValue(it.product);
+      if(cm.format>=0 && it.format) sh.getRange(r+1, cm.format+1).setValue(it.format);
+    }
+  });
 }
 
-/* ---------- Finance (one-way readable mirror) ---------- */
+/* ---------- Finance (one-way readable mirror, in the bound spreadsheet) ---------- */
 function renderFinance_(data){
   var sh=tab_(FIN_TAB); sh.clear();
   sh.appendRow(['Client','Date','Item','Category','Amount','Paid','Added by']);
