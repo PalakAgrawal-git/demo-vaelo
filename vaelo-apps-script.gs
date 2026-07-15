@@ -18,7 +18,7 @@
  */
 var CLIENT_SHEETS = {
   'SimpliCare':       'THIS',   // calendar lives in this spreadsheet
-  'Zerolys':          '',       // paste Zerolys sheet URL or ID
+  'Zerolys':          'https://docs.google.com/spreadsheets/d/1xnC74tL-Gnj1jbb4Sz_sc6HOtYBs2hkAbg-rx_pT0Ko/edit',
   'Marigold Miraaya': '',       // paste Marigold sheet URL or ID
   'DVOC Institute':   '',       // paste URL or ID
   'Tribal Zone':      ''        // paste URL or ID
