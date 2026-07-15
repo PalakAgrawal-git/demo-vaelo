@@ -121,6 +121,7 @@
     <div class="toolbar">
       <h2>Calendar pipeline</h2>
       <div class="toolbar-right">
+        <select class="filter" id="brandFilter" onchange="render()"></select>
         <select class="filter" id="monthFilter" onchange="render()"></select>
         <button class="add" onclick="openItemModal()">+ Add item</button>
       </div>
@@ -212,6 +213,14 @@ function monthOptions(){
   sel.innerHTML = '<option value="all">All months</option>' + months.map(m=>`<option value="${m}">${m}</option>`).join('');
   if(months.includes(cur)) sel.value = cur;
 }
+function brandOptions(){
+  const brands = [...new Set(state.items.map(i=>i.client))].filter(Boolean).sort();
+  const sel = document.getElementById('brandFilter');
+  if(!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="all">All brands</option>' + brands.map(b=>`<option value="${b}">${b}</option>`).join('');
+  if(brands.includes(cur)) sel.value = cur;
+}
 
 function renderLegend(){
   document.getElementById('legend').innerHTML = STAGES.map((s,i)=>`<span>${i+1}. ${s}</span>`).join('');
@@ -219,11 +228,14 @@ function renderLegend(){
 
 function renderPipeline(){
   monthOptions();
+  brandOptions();
   const monthFilter = document.getElementById('monthFilter').value || 'all';
+  const brandFilter = document.getElementById('brandFilter') ? (document.getElementById('brandFilter').value || 'all') : 'all';
   const el = document.getElementById('pipelineList');
-  const items = state.items.filter(i => monthFilter==='all' || i.month===monthFilter);
-  if(!items.length){ el.innerHTML = '<div class="empty">No calendar items yet. Add one, or promote an idea from the Idea bank.</div>'; return; }
-  el.innerHTML = CLIENTS.map(client=>{
+  const items = state.items.filter(i => (monthFilter==='all' || i.month===monthFilter) && (brandFilter==='all' || i.client===brandFilter));
+  if(!items.length){ el.innerHTML = '<div class="empty">No calendar items for this filter.</div>'; return; }
+  const clientList = [...new Set(state.items.map(i=>i.client))].filter(Boolean);
+  el.innerHTML = clientList.filter(client => brandFilter==='all' || client===brandFilter).map(client=>{
     const cItems = items.filter(i=>i.client===client).sort((a,b)=>a.date.localeCompare(b.date));
     if(!cItems.length) return '';
     return `<div class="client-group">
