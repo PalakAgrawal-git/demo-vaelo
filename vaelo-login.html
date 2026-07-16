@@ -515,14 +515,14 @@ function relabelSyncTag(win, txt){
 let __autoSyncTimer=null;
 let __lastLocalEdit=0;   // set whenever this user saves an edit
 function contentSig(state){ return (state&&state.items||[]).map(i=>i.id+'|'+i.stage+'|'+i.topic+'|'+i.product+'|'+i.format).sort().join('~'); }
-function startAutoSync(){ stopAutoSync(); __autoSyncTimer=setInterval(autoSyncTick, 18000); }
+function startAutoSync(){ stopAutoSync(); __autoSyncTimer=setInterval(autoSyncTick, 6000); }
 function stopAutoSync(){ if(__autoSyncTimer){ clearInterval(__autoSyncTimer); __autoSyncTimer=null; } }
 async function autoSyncTick(){
   try{
     if(!document.getElementById('screen-team').classList.contains('active')) return;
     // Give a fresh local edit time to reach the Sheet before pulling — otherwise
     // the poll can fetch stale data and revert what you just did (the "glitch").
-    if(Date.now()-__lastLocalEdit < 15000) return;
+    if(Date.now()-__lastLocalEdit < 5000) return;
     const win=document.getElementById('contentFrame').contentWindow;
     const cur=frameState(win); if(!cur) return;
     // don't yank data out from under someone who's editing (modal open)
