@@ -472,8 +472,15 @@ async function bridgeFrame(name){
   const origSave=win.save;
   if(typeof origSave==='function' && !origSave.__sync){
     const wrapped=function(){
-      const r=origSave.apply(this, arguments);
-      try{ const st=frameState(win); if(st){ __lastLocalEdit=Date.now(); storeSet('vaelo-content-state', st); } }catch(e){}
+      const r=origSave.apply(this, arguments);   // the pipeline sets synctag='sync failed' here (its own storage)
+      try{
+        const st=frameState(win);
+        if(st){
+          __lastLocalEdit=Date.now();
+          relabelSyncTag(win, 'Saving…');
+          storeSet('vaelo-content-state', st).then(function(){ relabelSyncTag(win, 'Google Sheet ✓'); });
+        }
+      }catch(e){}
       return r;
     };
     wrapped.__sync=true;
@@ -498,8 +505,8 @@ async function bridgeFrame(name){
 
 /* The embedded pipeline has its own "sync failed" label (it uses Claude-only
    storage). Relabel it so it reflects our Google Sheet sync instead. */
-function relabelSyncTag(win){
-  try{ var t=win.document.getElementById('synctag'); if(t) t.textContent = SYNC_URL ? 'Google Sheet ✓' : 'local only'; }catch(e){}
+function relabelSyncTag(win, txt){
+  try{ var t=win.document.getElementById('synctag'); if(t) t.textContent = txt || (SYNC_URL ? 'Google Sheet ✓' : 'local only'); }catch(e){}
 }
 
 /* Auto-sync: quietly poll the shared store so team members see each other's
