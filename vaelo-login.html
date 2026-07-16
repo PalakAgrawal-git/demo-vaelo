@@ -381,7 +381,7 @@ async function getContent(){
 /* ============================================================ SESSION */
 function getSession(){ try{ return JSON.parse(localStorage.getItem(SESSION_KEY)); }catch(e){ return null; } }
 function setSession(s){ localStorage.setItem(SESSION_KEY, JSON.stringify(s)); }
-function logout(){ stopAutoSync(); localStorage.removeItem(SESSION_KEY); document.getElementById('contentFrame').src='about:blank'; showScreen('login'); document.getElementById('f-user').value=''; document.getElementById('f-pass').value=''; }
+function logout(){ stopAutoSync(); stopClientSync(); localStorage.removeItem(SESSION_KEY); document.getElementById('contentFrame').src='about:blank'; showScreen('login'); document.getElementById('f-user').value=''; document.getElementById('f-pass').value=''; }
 function showScreen(name){ document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active', s.id==='screen-'+name)); }
 
 document.getElementById('loginForm').addEventListener('submit',(e)=>{
@@ -398,7 +398,7 @@ document.getElementById('loginForm').addEventListener('submit',(e)=>{
 
 function routeTo(s){
   if(s.role==='team'||s.role==='admin'){ renderTeam(s); showScreen('team'); }
-  else { renderClient(s); showScreen('client'); }
+  else { stopAutoSync(); renderClient(s); showScreen('client'); startClientSync(s); }
 }
 
 /* ============================================================ TEAM (embedded pipeline) */
@@ -420,6 +420,7 @@ async function renderTeam(s){
   const btn=document.getElementById('dhruvBtn');
   if(isAdmin){ btn.style.display='inline-flex'; await refreshDhruvCount(); }
   else { btn.style.display='none'; }
+  stopClientSync();
   startAutoSync();   // keep the pipeline in sync with teammates' changes
 }
 
@@ -523,6 +524,15 @@ async function autoSyncTick(){
     // Give a fresh local edit time to reach the Sheet before pulling — otherwise
     // the poll can fetch stale data and revert what you just did (the "glitch").
     if(Date.now()-__lastLocalEdit < 5000) return;
+    // Keep an open Finance panel fresh (skip while the user is typing in it).
+    try{
+      const mb=document.getElementById('modalbody');
+      if(document.getElementById('overlay').classList.contains('open') && mb.querySelector('.fin-form')){
+        const ae=document.activeElement;
+        const typing = ae && mb.contains(ae) && (ae.tagName==='INPUT'||ae.tagName==='SELECT');
+        if(!typing) openFinance(window.__finBrand);
+      }
+    }catch(e){}
     const win=document.getElementById('contentFrame').contentWindow;
     const cur=frameState(win); if(!cur) return;
     // don't yank data out from under someone who's editing (modal open)
@@ -534,6 +544,23 @@ async function autoSyncTick(){
       await refreshDhruvCount();
       toast('Pipeline updated by a teammate');
     }
+  }catch(e){}
+}
+
+/* Client-side live updates: refresh the client portal (pipeline + expenses)
+   when their data changes, so a client head sees new billing / progress live. */
+let __clientSyncTimer=null, __clientSig='';
+function startClientSync(s){ stopClientSync(); __clientSig=''; __clientSyncTimer=setInterval(function(){ clientSyncTick(s); }, 7000); }
+function stopClientSync(){ if(__clientSyncTimer){ clearInterval(__clientSyncTimer); __clientSyncTimer=null; } }
+async function clientSyncTick(s){
+  try{
+    if(!document.getElementById('screen-client').classList.contains('active')) return;
+    if(document.getElementById('overlay').classList.contains('open')) return; // don't redraw over a dialog
+    const content=await getContent(); const fin=await getFinance();
+    const mine=(content.items||[]).filter(i=>i.client===s.client);
+    const finList=(fin[s.client]||[]);
+    const sig=contentSig({items:mine})+'#'+finList.map(x=>x.id+'|'+x.amt+'|'+(x.paid?1:0)+'|'+x.item).join('~');
+    if(sig!==__clientSig){ __clientSig=sig; renderClient(s); }
   }catch(e){}
 }
 
