@@ -106,11 +106,10 @@ function itemsFromInfo_(info, client, prevByDate){
     var row=values[r];
     var date=v(row,cm.date); if(!date || !/\d/.test(date)) continue;
     var prev=prevByDate[date]||{};
-    // keep the app's precise stage if the sheet STATUS still matches it
-    // (so pipeline-only gates like "Dhruv approval" survive the round-trip)
-    var sheetStatus=v(row,cm.status);
-    var stage = (prev.stage!=null && stageToStatus_(prev.stage)===sheetStatus)
-                ? prev.stage : statusToStage_(sheetStatus, prev.stage);
+    // The APP owns the pipeline stage. An item that already exists keeps the
+    // stage the app set (so moves stick and never revert). Only brand-new rows
+    // added in the sheet take their initial stage from the STATUS column.
+    var stage = (prev.stage!=null) ? prev.stage : statusToStage_(v(row,cm.status), 2);
     var it={
       id: prev.id||genId_(), client: client, date: date,
       day: prev.day||'', month: prev.month||parseMonth_(date),
@@ -119,7 +118,6 @@ function itemsFromInfo_(info, client, prevByDate){
       product: cm.product>=0 ? v(row,cm.product) : (prev.product||''),
       owner: prev.owner||'—', stage: stage, log: (prev.log||[]).slice()
     };
-    if(prev.stage!=null && prev.stage!==stage){ it.log.push({d:today_(), t:'Stage moved to "'+STAGES[stage]+'". — by Sheet', by:'Sheet'}); }
     out.push(it);
   }
   return out;
