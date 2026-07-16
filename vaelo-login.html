@@ -271,10 +271,13 @@ const CONTENT_FILE = 'vaelo-content.html?v=9brands';  // ?v busts browser cache 
      2. window.VAELO_SYNC_URL — from a local, git-ignored vaelo-config.js
    Leave unset for local-only mode. Setup steps: VAELO-SYNC-SETUP.md
    ============================================================ */
+// Baked-in default so the hosted app is connected for EVERYONE (no per-device
+// "Connect" step). A localStorage override still wins if someone sets one.
+const DEFAULT_SYNC_URL = 'https://script.google.com/macros/s/AKfycbyRTjVS0WLBFGqdxe6dFGj3s6SUwf9fa61iLAwWaQi4m6jtu6bhHW_N815sfkPrB2FL/exec';
 let SYNC_URL = (function(){
   try{ var v=localStorage.getItem('vaelo-sync-url'); if(v) return v; }catch(e){}
   if(typeof window.VAELO_SYNC_URL==='string' && window.VAELO_SYNC_URL) return window.VAELO_SYNC_URL;
-  return '';
+  return DEFAULT_SYNC_URL;
 })();
 function configureSync(){
   var cur=SYNC_URL||'';
